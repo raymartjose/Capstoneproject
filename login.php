@@ -37,7 +37,7 @@
             <!-- Login Form -->
             <form action="login_process.php" method="POST">
                 <div class="input-box">
-                    <label for="username">Email</label>
+                    <label for="username">Ema</label>
                     <input type="email" id="username" name="username" required>
                 </div>
 
