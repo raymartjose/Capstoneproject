@@ -1,0 +1,78 @@
+@import url('main.css');
+.card {
+    background: var(--background-white);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background-color: var(--main-color);
+    color: white;
+    padding: 1rem;
+    font-size: 1.2rem;
+    border-radius: 8px 8px 0 0;
+}
+
+.card-body {
+    padding: 2rem;
+}
+
+.card-body .form-group {
+    margin-bottom: 1rem;
+}
+
+.card-body label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--color-dark);
+}
+
+.card-body input,
+.card-body button {
+    width: 100%;
+    padding: 0.8rem;
+    margin-top: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.card-body input:focus,
+.card-body button:focus {
+    outline: none;
+    border-color: var(--main-color);
+}
+
+.card-body button {
+    background-color: var(--main-color);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    margin-top: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.card-body button:hover {
+    background-color: #28a9c8;
+}
+
+form {
+    display: grid;
+    gap: 1.5rem;
+}
+
+/* Style the checkbox and label for recurring */
+#recurring {
+    margin-left: 10px;
+}
+
+/* Responsive layout */
+@media only screen and (max-width: 768px) {
+    .main-content {
+        padding: 1rem;
+    }
+
+    .card {
+        padding: 1.5rem;
+    }
+}

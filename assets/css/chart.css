@@ -1,0 +1,199 @@
+@import url('main.css');
+.chart-container {
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background-color: var(--background-white);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    border: 1px solid #ddd;
+}
+
+/* Styling for the chart headers */
+.chart-container h3 {
+    text-align: center;
+    font-size: 1.2rem;
+    color: var(--color-dark);
+    margin-bottom: 20px;
+}
+
+/* Main chart grid layout */
+.chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+/* Responsive layout for the main chart grid */
+@media (max-width: 768px) {
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+    .chart-container {
+        margin-bottom: 20px;
+    }
+}
+
+/* Styling specifically for chart-grid1 */
+.chart-grid1 {
+    display: grid;
+    grid-template-columns: 76% 76%;
+    gap: 20px;
+    height: 30%;
+}
+
+/* Responsive adjustments for chart-grid1 */
+@media (max-width: 991px) {
+    .chart-grid1 {
+        grid-template-columns: 1fr; /* Switch to a single column on smaller screens */
+    }
+}
+
+.chart-grid1 .chart-container {
+    background-color: var(--background-white);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    height: 90%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 5px;
+}
+
+.chart-grid1 .chart-container canvas {
+    width: 100%;
+    height: auto;
+    max-height: 80%;
+}
+
+/* Custom styling for charts */
+canvas {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 10px;
+}
+
+/* Additional Chart Customization */
+.chart-container canvas {
+    background-color: var(--background-light);
+}
+
+.chart-line {
+    background-color: var(--main-color-light); 
+}
+
+.chart-bar {
+    background-color: var(--main-color); 
+}
+
+.chart-pie {
+    background-color: var(--color-dark); 
+}
+
+/* Tooltip styling */
+.chart-tooltip {
+    background-color: var(--main-color);
+    color: #fff;
+    border-radius: 5px;
+    padding: 8px;
+    font-size: 1rem;
+}
+
+
+.customer {
+    display: flex;
+    flex-direction: column; /* Ensure items stack properly */
+    justify-content: flex-start;
+    align-items: center;
+}
+
+/* Adding responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .customer {
+        align-items: center; /* Center content for better mobile experience */
+    }
+}
+.chart-containers {
+    width: 80%; /* Decrease width to make the chart more compact */
+    padding: 20px;
+    margin: 5px auto;
+    box-sizing: border-box;
+    background-color: var(--background-light);
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    max-width: 600px; /* Limit maximum width for a more focused view */
+}
+
+.chart-containers:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+}
+
+.chart-containers canvas {
+    width: 100% !important;
+    height: 250px !important; /* Decreased height for a more compact chart */
+    border-radius: 8px;
+}
+
+.chart-containers h3 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--color-dark);
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.update-budget-btn {
+    margin-top: 10px;
+    padding: 8px 16px;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.update-budget-btn:hover {
+    background: #d1697b;
+}
+
+.meter-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Adjust spacing between meters */
+}
+
+.budget-meter, .income-goal-meter {
+    width: 100%;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.meter {
+    position: relative;
+    height: 30px;
+    background: #e0e0e0;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.fill {
+    height: 100%;
+    background: #4caf50; /* Green for income */
+    text-align: center;
+    line-height: 30px;
+    font-weight: bold;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    border-radius: 15px;
+}
+
+.budget-meter .fill {
+    background: #4caf50; /* Red for expenses */
+}
+

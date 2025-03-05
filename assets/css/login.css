@@ -1,0 +1,73 @@
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: var(--background-light);
+}
+
+.login-box {
+    background-color: var(--background-white);
+    padding: 2rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    border-radius: 10px;
+}
+
+.login-box h2 {
+    text-align: center;
+    color: var(--main-color);
+    margin-bottom: 1.5rem;
+}
+
+.input-box {
+    margin-bottom: 1rem;
+}
+
+.input-box label {
+    font-size: 1rem;
+    color: var(--color-dark);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.input-box input {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.input-box input:focus {
+    border-color: var(--main-color);
+}
+
+.input-box input[type="submit"] {
+    background-color: var(--main-color);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.input-box input[type="submit"]:hover {
+    background-color: #d1697b;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    font-size: 14px;
+    text-align: center;
+}
+.error-message:hover {
+    background-color: #f1b0b7;
+}

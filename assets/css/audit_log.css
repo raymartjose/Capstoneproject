@@ -1,0 +1,72 @@
+:root {
+    --main-color: #ed6978;
+    --main-color-light: #e0f7fa;
+    --color-dark: #1D2231;
+    --text-grey: #8390A2;
+    --background-light: #f1f5f9;
+    --background-white: #fff;
+}
+.recent-grid1 .filter-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.recent-grid1 .filter-form input {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.recent-grid1 .filter-form button {
+    padding: 0.5rem 1rem;
+    background-color: var(--main-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.recent-grid1 .filter-form button:hover {
+    background-color: var(--main-color);
+}
+
+.recent-grid1 .export-buttons button {
+    padding: 0.5rem 1rem;
+    background-color: var(--main-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.recent-grid1 .export-buttons button:hover {
+    background-color: var(--main-color);
+}
+
+.recent-grid1 table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.recent-grid1 thead tr {
+    background-color: #f2f2f2;
+}
+
+.recent-grid1 th, .recent-grid1 td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.recent-grid1 th {
+    font-weight: bold;
+    background-color: #f9f9f9;
+}
+
+.recent-grid1 td {
+    font-size: 0.9rem;
+    color: #555;
+}
