@@ -24,19 +24,36 @@ $user_role = $_SESSION['role_display'];  // User role from session
 
 include('assets/databases/dbconfig.php');
 
+$agingPage = isset($_GET['aging_page']) ? max(1, intval($_GET['aging_page'])) : 1;
+$unpaidPage = isset($_GET['unpaid_page']) ? max(1, intval($_GET['unpaid_page'])) : 1;
+
+// Set limit per page
+$limit = 5;
+$agingOffset = ($agingPage - 1) * $limit;
+$unpaidOffset = ($unpaidPage - 1) * $limit;
+
+// Get total count for pagination
+$totalAgingRows = $connection->query("SELECT COUNT(DISTINCT customer_name) AS total FROM receivables")->fetch_assoc()['total'];
+$totalUnpaidRows = $connection->query("SELECT COUNT(*) AS total FROM invoices WHERE payment_status IN ('pending', 'overdue')")->fetch_assoc()['total'];
+
+// Total pages
+$totalAgingPages = ceil($totalAgingRows / $limit);
+$totalUnpaidPages = ceil($totalUnpaidRows / $limit);
+
+// Aging Report Query with Pagination
 $sql = "SELECT 
-id,
-    customer_name, 
-    SUM(IFNULL(current_amount, 0)) AS current_amount,
-    SUM(IFNULL(past_due_30, 0)) AS past_due_30,
-    SUM(IFNULL(past_due_60, 0)) AS past_due_60,
-    SUM(IFNULL(past_due_90, 0)) AS past_due_90,
-    SUM(IFNULL(past_due_90plus, 0)) AS past_due_90plus,
-    SUM(IFNULL(total_due, 0)) AS total_due
-FROM receivables
-GROUP BY customer_name  -- ✅ Group by customer_id
-ORDER BY total_due DESC"; // Order by highest due amount
- // Fix ORDER BY
+            id,
+            customer_name, 
+            SUM(IFNULL(current_amount, 0)) AS current_amount,
+            SUM(IFNULL(past_due_30, 0)) AS past_due_30,
+            SUM(IFNULL(past_due_60, 0)) AS past_due_60,
+            SUM(IFNULL(past_due_90, 0)) AS past_due_90,
+            SUM(IFNULL(past_due_90plus, 0)) AS past_due_90plus,
+            SUM(IFNULL(total_due, 0)) AS total_due
+        FROM receivables
+        GROUP BY customer_name
+        ORDER BY total_due DESC
+        LIMIT $limit OFFSET $agingOffset";
 
 $result = $connection->query($sql);
 
@@ -60,16 +77,68 @@ $sqlUnpaid = "SELECT
                 invoices.id AS invoice_id, 
                 invoices.customer_id,
                 invoices.product_name, 
-                invoices.amount, 
+                invoices.total_amount, 
                 invoices.due_date, 
                 invoices.payment_status, 
                 customers.name AS customer_name
             FROM invoices
             JOIN customers ON invoices.customer_id = customers.id
-            WHERE invoices.payment_status = 'pending' OR invoices.payment_status = 'overdue'
-            ORDER BY invoices.due_date ASC";
+            WHERE invoices.payment_status IN ('pending', 'overdue')
+            ORDER BY invoices.due_date ASC
+            LIMIT $limit OFFSET $unpaidOffset";
 
 $resultUnpaid = $connection->query($sqlUnpaid);
+
+
+function getPaidUnpaidInvoicesData() {
+    global $connection;
+
+    // Initialize an array to hold monthly data for paid and unpaid invoices
+    $paidInvoices = array_fill(0, 12, 0);
+    $unpaidInvoices = array_fill(0, 12, 0);
+
+    // Query to get the total amount for paid invoices by month
+    $sqlPaid = "SELECT 
+                    MONTH(invoices.payment_date) AS month,
+                    SUM(invoices.total_amount) AS total_paid
+                FROM invoices
+                WHERE invoices.payment_status = 'paid'
+                GROUP BY MONTH(invoices.payment_date)
+                ORDER BY month ASC";
+    $resultPaid = $connection->query($sqlPaid);
+    if ($resultPaid->num_rows > 0) {
+        while ($row = $resultPaid->fetch_assoc()) {
+            $monthIndex = $row['month'] - 1;  // Convert month number to zero-based index
+            $paidInvoices[$monthIndex] = $row['total_paid'];
+        }
+    }
+
+    // Query to get the total amount for unpaid invoices by month
+    $sqlNotpaid = "SELECT 
+                    MONTH(invoices.due_date) AS month,
+                    SUM(invoices.total_amount) AS total_unpaid
+                FROM invoices
+                WHERE invoices.payment_status IN ('pending', 'overdue')
+                GROUP BY MONTH(invoices.due_date)
+                ORDER BY month ASC";
+    $resultNotpaid = $connection->query($sqlNotpaid);
+    if ($resultNotpaid->num_rows > 0) {
+        while ($row = $resultNotpaid->fetch_assoc()) {
+            $monthIndex = $row['month'] - 1;  // Convert month number to zero-based index
+            $unpaidInvoices[$monthIndex] = $row['total_unpaid'];
+        }
+    }
+
+    return [
+        'paidInvoices' => $paidInvoices,
+        'unpaidInvoices' => $unpaidInvoices
+    ];
+}
+
+// Fetch paid and unpaid invoice data
+$invoiceData = getPaidUnpaidInvoicesData();
+$paidInvoices = json_encode($invoiceData['paidInvoices']);
+$unpaidInvoices = json_encode($invoiceData['unpaidInvoices']);
 
 ?>
 
@@ -462,7 +531,7 @@ function downloadTransactionHistory() {
     <!-- Aging Report Table -->
     <div class="table-container">
         <h3>Aging Report</h3>
-        <button id="updateAging">Update Aging</button>
+        <br>
         <table id="agingTable">
     <thead>
         <tr>
@@ -505,13 +574,25 @@ function downloadTransactionHistory() {
             <td><?= number_format($totalDue, 2) ?></td>
         </tr>
     </tfoot>
-</table>
 
+</table>
+<div class="pagination">
+    <?php if ($agingPage > 1) : ?>
+        <a href="?aging_page=<?= $agingPage - 1 ?>" class="prev">← Previous</a>
+    <?php endif; ?>
+    
+    <?php if ($agingPage < $totalAgingPages) : ?>
+        <a href="?aging_page=<?= $agingPage + 1 ?>" class="next">Next →</a>
+    <?php endif; ?>
+</div>
+
+<button id="updateAging">Update Aging</button>
     </div>
 
     <!-- Unpaid Invoices Table -->
     <div class="table-container small-table">
         <h3>Unpaid Invoices</h3>
+        <br>
         <table id="unpaidInvoicesTable">
             <thead>
                 <tr>
@@ -522,23 +603,43 @@ function downloadTransactionHistory() {
                 </tr>
             </thead>
             <tbody>
-    <?php if ($resultUnpaid->num_rows > 0) : ?>
-        <?php while ($row = $resultUnpaid->fetch_assoc()) : ?>
+    <?php 
+    $totalUnpaidAmount = 0; // Initialize total
+    if ($resultUnpaid->num_rows > 0) : 
+        while ($row = $resultUnpaid->fetch_assoc()) : 
+            $totalUnpaidAmount += $row['total_amount']; // Sum up total amount
+    ?>
             <tr class="invoice-row" data-invoice-id="<?= $row['customer_id'] ?>" 
-    style="cursor:pointer;" 
-    onmouseover="this.style.backgroundColor='#f1b0b7';" 
-    onmouseout="this.style.backgroundColor='';">
+                style="cursor:pointer;" 
+                onmouseover="this.style.backgroundColor='#f1b0b7';" 
+                onmouseout="this.style.backgroundColor='';">
                 <td><?= htmlspecialchars($row['customer_name']) ?></td>
                 <td><?= htmlspecialchars($row['invoice_id']) ?></td>
                 <td><?= date("M d, Y", strtotime($row['due_date'])) ?></td>
-                <td><?= number_format($row['amount'], 2) ?></td>
+                <td><?= number_format($row['total_amount'], 2) ?></td>
             </tr>
         <?php endwhile; ?>
     <?php else : ?>
         <tr><td colspan="4" style="text-align: center;">No unpaid invoices</td></tr>
     <?php endif; ?>
 </tbody>
+<tfoot>
+    <tr>
+        <td colspan="3" style="font-weight: bold; text-align: right;">Total:</td>
+        <td style="font-weight: bold;">₱<?= number_format($totalUnpaidAmount, 2) ?></td>
+    </tr>
+</tfoot>
         </table>
+        <div class="pagination">
+    <?php if ($unpaidPage > 1) : ?>
+        <a href="?unpaid_page=<?= $unpaidPage - 1 ?>" class="prev">← Previous</a>
+    <?php endif; ?>
+    
+    <?php if ($unpaidPage < $totalUnpaidPages) : ?>
+        <a href="?unpaid_page=<?= $unpaidPage + 1 ?>" class="next">Next →</a>
+    <?php endif; ?>
+</div>
+
     </div>
 </div>
 <br>
@@ -559,25 +660,29 @@ function downloadTransactionHistory() {
 <script>
 const ctx = document.getElementById("paidUnpaidChart").getContext("2d");
 
-// Sample Data
+// Monthly labels for the chart
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const paidInvoices = [5000, 7000, 6500, 8000, 9000, 7500, 6200, 7000, 7200, 8100, 8300, 8800];
-const unpaidInvoices = [2000, 1500, 3000, 2500, 2200, 2700, 3100, 2900, 2800, 2400, 2600, 2300];
+
+// Data from PHP variables
+const paidInvoices = <?php echo $paidInvoices; ?>;
+const unpaidInvoices = <?php echo $unpaidInvoices; ?>;
 
 const paidUnpaidChart = new Chart(ctx, {
-    type: "bar",
+    type: "bar", // Change type to "bar" for horizontal bars
     data: {
-        labels: months, // Months on X-axis
+        labels: months, // Months on Y-axis
         datasets: [
             {
                 label: "Paid",
                 data: paidInvoices,
-                backgroundColor: "#4CAF50",
+                backgroundColor: "#4CAF50", // Green for Paid
+                stack: 'stack1', // Group bars by stack
             },
             {
                 label: "Unpaid",
                 data: unpaidInvoices,
-                backgroundColor: "#FF5733",
+                backgroundColor: "#FF5733", // Red for Unpaid
+                stack: 'stack1', // Group bars by stack
             }
         ]
     },
@@ -586,10 +691,17 @@ const paidUnpaidChart = new Chart(ctx, {
         maintainAspectRatio: false,
         scales: {
             x: {
-                beginAtZero: true
+                beginAtZero: true,
+                stacked: true, // Stack the bars
             },
             y: {
-                beginAtZero: true
+                beginAtZero: true,
+                stacked: true, // Stack bars vertically
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top', // Position of the legend
             }
         }
     }
@@ -598,81 +710,82 @@ const paidUnpaidChart = new Chart(ctx, {
 </script>
 
 <script>
-// Horizontal Bar Chart (Top 10 Unpaid Customers)
-let ctx1 = document.getElementById("topCustomersChart").getContext("2d");
-let topCustomersChart = new Chart(ctx1, {
-    type: "bar",
-    data: {
-        labels: ["Customer A", "Customer B", "Customer C", "Customer D", "Customer E", "Customer F", "Customer G", "Customer H", "Customer I", "Customer J"],
-        datasets: [{
-            label: "Unpaid Amount ($)",
-            data: [10000, 9200, 8500, 7800, 7300, 6900, 6200, 5800, 5500, 5000],
-            backgroundColor: "#ed6978"
-        }]
-    },
-    options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            x: { beginAtZero: true }
-        }
-    }
-});
-
-const pieChartData = {
-    labels: ["Customer A", "Customer B", "Customer C", "Customer D"],
-    datasets: [{
-        data: [30, 25, 20, 25], // Example unpaid percentages
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"]
-    }]
-};
-
-const unpaidPieChart = new Chart(document.getElementById("unpaidPieChart"), {
-    type: "doughnut",
-    data: pieChartData,
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "35%", // Set cutout size
-        plugins: {
-            legend: {
-                display: false // Hide default legend
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(tooltipItem) {
-                        let value = tooltipItem.raw;
-                        let total = pieChartData.datasets[0].data.reduce((a, b) => a + b, 0);
-                        let percentage = ((value / total) * 100).toFixed(1) + "%";
-                        return `${pieChartData.labels[tooltipItem.dataIndex]}: ${percentage}`;
+document.addEventListener("DOMContentLoaded", function () {
+    fetch("fetch_unpaid_customers.php") // Adjust based on your PHP file path
+        .then(response => response.json())
+        .then(data => {
+            // Populate Bar Chart (Top 10 Unpaid Customers)
+            let ctx1 = document.getElementById("topCustomersChart").getContext("2d");
+            new Chart(ctx1, {
+                type: "bar",
+                data: {
+                    labels: data.customers,
+                    datasets: [{
+                        label: "Unpaid Amount (₱)",
+                        data: data.amounts,
+                        backgroundColor: "#ed6978"
+                    }]
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { beginAtZero: true }
                     }
                 }
-            },
-            datalabels: {
-                color: "#fff",
-                font: { weight: "bold" },
-                formatter: (value, ctx) => {
-                    let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                    let percentage = ((value / total) * 100).toFixed(1);
-                    return percentage + "%";
-                }
-            }
-        }
-    },
-    plugins: [ChartDataLabels] // Enable DataLabels plugin
-});
+            });
 
-// Custom Legend
-const legendContainer = document.getElementById("pieChartLegend");
-legendContainer.innerHTML = ""; // Clear existing legend before adding new ones
-pieChartData.labels.forEach((label, index) => {
-    const legendItem = document.createElement("li");
-    legendItem.innerHTML = `<span style="background-color: ${pieChartData.datasets[0].backgroundColor[index]}; width: 12px; height: 12px; display: inline-block; margin-right: 5px;"></span> ${label}`;
-    legendContainer.appendChild(legendItem);
-});
+            // Populate Pie Chart (Unpaid Customer Percentage)
+            let pieColors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#8BC34A", "#E91E63", "#009688", "#795548"];
 
+            // Initialize Pie Chart with Percentage Labels
+            let unpaidPieChart = new Chart(document.getElementById("unpaidPieChart"), {
+                type: "doughnut",
+                data: {
+                    labels: data.customers,
+                    datasets: [{
+                        data: data.percentages,
+                        backgroundColor: pieColors.slice(0, data.customers.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "35%", // Adjust cutout size for doughnut effect
+                    plugins: {
+                        legend: { display: false }, // Hide default legend
+                        tooltip: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    let value = tooltipItem.raw;
+                                    return `${data.customers[tooltipItem.dataIndex]}: ${value}%`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: "#fff", // Set text color
+                            font: { weight: "bold", size: 14 }, // Customize font
+                            formatter: (value) => value + "%" // Show percentage
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels] // Enable Chart.js Data Labels plugin
+            });
+
+            // Generate Custom Legend for Pie Chart
+            let legendContainer = document.getElementById("pieChartLegend");
+            legendContainer.innerHTML = ""; // Clear before adding new
+            data.customers.forEach((label, index) => {
+                const legendItem = document.createElement("li");
+                legendItem.innerHTML = `<span style="background-color: ${pieColors[index]}; width: 12px; height: 12px; display: inline-block; margin-right: 5px;"></span> ${label}`;
+                legendContainer.appendChild(legendItem);
+            });
+        })
+        .catch(error => console.error("Error loading chart data:", error));
+});
 </script>
+
 
 <style>
 .container {
@@ -843,6 +956,23 @@ h3 {
     }
 }
 
+.pagination {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.pagination a {
+    padding: 8px 12px;
+    text-decoration: none;
+    background: #007bff;
+    color: white;
+    border-radius: 4px;
+    margin: 0 5px;
+}
+
+.pagination a:hover {
+    background: #0056b3;
+}
 
 </style>
 <script>
@@ -1037,6 +1167,22 @@ document.getElementById('updateAging').addEventListener('click', function() {
         });
 });
 </script>
+<script>
+function fetchKPIData() {
+    fetch('get_kpi_data.php')
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById("totalReceivables").textContent = `₱${data.totalReceivables}`;
+        document.getElementById("pastDuePercent").textContent = `${data.pastDuePercent}%`;
+        document.getElementById("over90").textContent = `₱${data.over90}`;
+    })
+    .catch(error => console.error('Error fetching KPI data:', error));
+}
+
+// Fetch data on page load
+window.onload = fetchKPIData;
+</script>
+
 
 </body>
 </html>

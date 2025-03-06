@@ -17,9 +17,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Update invoice payment status and method
         if (($payment_status != 'cancel' && $payment_status != 'overdue' && !empty($payment_method)) || $payment_method == 'N/A') {
             // Update the invoice with the new payment status and method
-            $query = "UPDATE invoices SET payment_status = ?, payment_method = ? WHERE id = ?";
+            $query = "UPDATE invoices SET payment_status = ?, payment_method = ?, payment_date = ? WHERE id = ?";
+            $payment_date = ($payment_status == 'paid') ? date('Y-m-d') : NULL;  // Set payment_date only if the status is "paid"
             $stmt = mysqli_prepare($connection, $query);
-            mysqli_stmt_bind_param($stmt, 'ssi', $payment_status, $payment_method, $invoice_id);
+            mysqli_stmt_bind_param($stmt, 'sssi', $payment_status, $payment_method, $payment_date, $invoice_id);
 
             if (mysqli_stmt_execute($stmt)) {
                 // If payment is made (status is "paid") or canceled (status is "cancel"), update receivables

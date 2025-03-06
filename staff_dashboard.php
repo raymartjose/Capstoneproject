@@ -331,47 +331,59 @@ $user_role = $_SESSION['role_display'];  // User role from session
 
     <div class="card-body">
         <div class="table-responsive">
-            <table width="100%" id="invoiceTable">
-                <thead>
-                    <tr>
-                        <td>Invoice Number</td>
-                        <td>Customer</td>
-                        <td>Due Date</td>
-                        <td>Status</td>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                                $query = "
-                                    SELECT i.id, c.name AS customer_name, i.due_date, i.payment_status 
-                                    FROM invoices i 
-                                    JOIN customers c ON i.customer_id = c.id 
-                                    ORDER BY i.issue_date";
-                                
-                                if (mysqli_multi_query($connection, $query)) {
-                                    do {
-                                        if ($result = mysqli_store_result($connection)) {
-                                            while ($row = mysqli_fetch_assoc($result)) {
-                                                echo "<tr data-status='" . htmlspecialchars($row['payment_status']) . "' 
-                                                          onclick=\"window.location.href='invoice.php?id=" . htmlspecialchars($row['id']). "'\" 
-                                                          style='cursor:pointer;' 
-                                                          onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
-                                                          onmouseout=\"this.style.backgroundColor=''\">
-                                                        <td>" . htmlspecialchars($row['id']) . "</td>
-                                                        <td>" . htmlspecialchars($row['customer_name']) . "</td>
-                                                        <td>" . htmlspecialchars($row['due_date']) . "</td>
-                                                        <td><span class='status " . ($row['payment_status'] == 'paid' ? 'green' : 'orange') . "'></span>" . ucfirst($row['payment_status']) . "</td>
-                                                      </tr>";
-                                            }
-                                            mysqli_free_result($result);
-                                        }
-                                    } while (mysqli_next_result($connection));
-                                } else {
-                                    echo "<tr><td colspan='4'>No invoices found.</td></tr>";
-                                }
-                                ?>
-                </tbody>
-            </table>
+        <table width="100%" id="invoiceTable">
+    <thead>
+        <tr>
+            <td>Invoice Number</td>
+            <td>Customer</td>
+            <td>Due Date</td>
+            <td>Status</td>
+        </tr>
+    </thead>
+    <tbody>
+    <?php
+    // First, update overdue invoices
+    $current_date = date('Y-m-d');
+    $update_query = "
+    UPDATE invoices 
+    SET payment_status = 'overdue' 
+    WHERE due_date < NOW() AND payment_status != 'paid'";
+$update_stmt = mysqli_prepare($connection, $update_query);
+mysqli_stmt_execute($update_stmt);
+
+
+    // Now, fetch the updated invoices
+    $query = "
+        SELECT i.id, c.name AS customer_name, i.due_date, i.payment_status 
+        FROM invoices i 
+        JOIN customers c ON i.customer_id = c.id 
+        ORDER BY i.issue_date";
+
+    if (mysqli_multi_query($connection, $query)) {
+        do {
+            if ($result = mysqli_store_result($connection)) {
+                while ($row = mysqli_fetch_assoc($result)) {
+                    echo "<tr data-status='" . htmlspecialchars($row['payment_status']) . "' 
+                              onclick=\"window.location.href='invoice.php?id=" . htmlspecialchars($row['id']). "'\" 
+                              style='cursor:pointer;' 
+                              onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
+                              onmouseout=\"this.style.backgroundColor=''\">
+                            <td>" . htmlspecialchars($row['id']) . "</td>
+                            <td>" . htmlspecialchars($row['customer_name']) . "</td>
+                            <td>" . htmlspecialchars($row['due_date']) . "</td>
+                            <td><span class='status " . ($row['payment_status'] == 'paid' ? 'green' : 'orange') . "'></span>" . ucfirst($row['payment_status']) . "</td>
+                          </tr>";
+                }
+                mysqli_free_result($result);
+            }
+        } while (mysqli_next_result($connection));
+    } else {
+        echo "<tr><td colspan='4'>No invoices found.</td></tr>";
+    }
+    ?>
+    </tbody>
+</table>
+
         </div>
     </div>
 </div>

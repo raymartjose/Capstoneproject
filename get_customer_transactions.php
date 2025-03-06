@@ -13,7 +13,7 @@ if ($customer_id > 0) {
     $customer_name = $customerRow['name'] ?? 'Unknown';
 
     // Query to get all invoices for the specific customer
-    $query = "SELECT i.id, i.product_name, i.amount, i.payment_status, i.payment_method, i.due_date, i.issue_date
+    $query = "SELECT i.id, i.product_name, i.total_amount, i.payment_status, i.payment_method, i.due_date, i.issue_date
               FROM invoices i
               WHERE i.customer_id = $customer_id
               ORDER BY i.issue_date DESC";
@@ -40,7 +40,7 @@ if ($customer_id > 0) {
             echo "<tr>
                     <td>" . htmlspecialchars($row['id']) . "</td>
                     <td>" . htmlspecialchars($row['product_name']) . "</td>
-                    <td>₱" . number_format($row['amount'], 2) . "</td>
+                    <td>₱" . number_format($row['total_amount'], 2) . "</td>
                     <td>" . ucfirst($row['payment_status']) . "</td>
                     <td>" . htmlspecialchars($row['payment_method']) . "</td>
                     <td>" . htmlspecialchars($row['due_date']) . "</td>
