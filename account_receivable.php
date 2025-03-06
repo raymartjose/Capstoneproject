@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel="stylesheet" href="assets/css/request_form.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
+    
 </head>
 <body>
 
@@ -20,6 +21,55 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_name = $_SESSION['name'];  // User name from session
 $user_role = $_SESSION['role_display'];  // User role from session
+
+include('assets/databases/dbconfig.php');
+
+$sql = "SELECT 
+id,
+    customer_name, 
+    SUM(IFNULL(current_amount, 0)) AS current_amount,
+    SUM(IFNULL(past_due_30, 0)) AS past_due_30,
+    SUM(IFNULL(past_due_60, 0)) AS past_due_60,
+    SUM(IFNULL(past_due_90, 0)) AS past_due_90,
+    SUM(IFNULL(past_due_90plus, 0)) AS past_due_90plus,
+    SUM(IFNULL(total_due, 0)) AS total_due
+FROM receivables
+GROUP BY customer_name  -- ✅ Group by customer_id
+ORDER BY total_due DESC"; // Order by highest due amount
+ // Fix ORDER BY
+
+$result = $connection->query($sql);
+
+$receivablesData = [];
+$totalCurrent = $totalPast30 = $totalPast60 = $totalPast90 = $totalPast90plus = $totalDue = 0;
+
+// Fetch data only once
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $receivablesData[] = $row;
+        $totalCurrent += $row['current_amount'];
+        $totalPast30 += $row['past_due_30'];
+        $totalPast60 += $row['past_due_60'];
+        $totalPast90 += $row['past_due_90'];
+        $totalPast90plus += $row['past_due_90plus'];
+        $totalDue += $row['total_due'];
+    }
+}
+
+$sqlUnpaid = "SELECT 
+                invoices.id AS invoice_id, 
+                invoices.customer_id,
+                invoices.product_name, 
+                invoices.amount, 
+                invoices.due_date, 
+                invoices.payment_status, 
+                customers.name AS customer_name
+            FROM invoices
+            JOIN customers ON invoices.customer_id = customers.id
+            WHERE invoices.payment_status = 'pending' OR invoices.payment_status = 'overdue'
+            ORDER BY invoices.due_date ASC";
+
+$resultUnpaid = $connection->query($sqlUnpaid);
 
 ?>
 
@@ -72,7 +122,7 @@ $user_role = $_SESSION['role_display'];  // User role from session
                 <label for="nav-toggle">
                     <span class="las la-bars"></span>
                 </label>
-                Account Receivable Aging
+                Accounts Receivable
                 </h2>
                 </div>
 
@@ -255,233 +305,544 @@ $user_role = $_SESSION['role_display'];  // User role from session
             </div>
         </div>
 
-        <main>
-        <div class="card">
-            <div class="card-header">
-                <h3>Receivables Aging Report</h3>
 
-                <label for="">Due Date Filter:<input type="date" id="dueDateFilter" class="date-picker" onchange="filterByDueDate()"></label>
-                
-                <button onclick="exportTableToCSV('receivables_aging.csv')" class="btn-export">
-                    <span class="las la-file-export"></span> Export CSV
-                </button>
-            </div>
 
-            <div class="table-responsive">
-                <table id="agingTable">
-                    <thead>
-                        <tr>
-                            <th>Customer Name</th>
-                            <th>Invoice No</th>
-                            <th>Due Date</th>
-                            <th>Current</th>
-                            <th>1-30 Days</th>
-                            <th>31-60 Days</th>
-                            <th>61-90 Days</th>
-                            <th>90+ Days</th>
-                            <th>Total Due</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        include('assets/databases/dbconfig.php');
-
-                        $sql = "SELECT customer_name, invoice_id, due_date, current_amount, 
-                                past_due_30, past_due_60, past_due_90, past_due_90plus, total_due 
-                                FROM receivables";
-                        $result = $connection->query($sql);
-
-                        if ($result->num_rows > 0) {
-                            while ($row = $result->fetch_assoc()) {
-                                echo "<tr>
-                                        <td>{$row['customer_name']}</td>
-                                        <td>{$row['invoice_id']}</td>
-                                        <td>{$row['due_date']}</td>
-                                        <td class='current'>{$row['current_amount']}</td>
-                                        <td class='past30'>{$row['past_due_30']}</td>
-                                        <td class='past60'>{$row['past_due_60']}</td>
-                                        <td class='past90'>{$row['past_due_90']}</td>
-                                        <td class='past90plus'>{$row['past_due_90plus']}</td>
-                                        <td class='total_due'>{$row['total_due']}</td>
-                                    </tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='9' style='text-align: center;'>No records found</td></tr>";
-                        }
-                        $connection->close();
-                        ?>
-                    </tbody>
-                    <tfoot>
-            <tr>
-                <td colspan="3" style="font-weight: bold; text-align: right;">Total:</td>
-                <td id="totalCurrent">0</td>
-                <td id="totalPast30">0</td>
-                <td id="totalPast60">0</td>
-                <td id="totalPast90">0</td>
-                <td id="totalPast90plus">0</td>
-                <td id="totalDue">0</td>
-            </tr>
-        </tfoot>
-                </table>
-            </div>
+        <div id="transactionHistoryPanel" class="transaction-panel">
+    <div class="panel-header">
+        <h3>Transaction History</h3>
+        <div>
+            <button onclick="downloadTransactionHistory()">📥 Download</button>
+            <button id="maximizeBtn" onclick="toggleMaximize()">🗖</button> 
+            <button onclick="closePanel()">✖</button>
         </div>
+    </div>
+    <div id="transactionContent">
+        <p>Select an invoice to view transaction history.</p>
+    </div>
+</div>
+
+<style>
+.transaction-panel {
+    position: fixed;
+    top: 0;
+    right: -600px; /* Initially hidden */
+    width: 600px; /* Default width */
+    height: 100%;
+    background: white;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+    transition: right 0.3s ease-in-out, width 0.3s ease-in-out;
+    padding: 20px;
+    overflow-y: auto;
+    z-index: 10000;
+}
+.transaction-panel.open {
+    right: 0;
+}
+
+/* Maximized Mode */
+.transaction-panel.maximized {
+    width: 100vw; /* Full-screen width */
+}
+
+/* Panel Header */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+/* Button Styling */
+.panel-header button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    margin-left: 8px;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.panel-header button:hover {
+    background-color: #f0f0f0;
+}
+</style>
+
+<script>
+function toggleMaximize() {
+    let panel = document.getElementById("transactionHistoryPanel");
+    let maximizeBtn = document.getElementById("maximizeBtn");
+
+    panel.classList.toggle("maximized");
+
+    // Change button icon based on state
+    if (panel.classList.contains("maximized")) {
+        maximizeBtn.innerHTML = "🗕"; // Restore icon
+    } else {
+        maximizeBtn.innerHTML = "🗖"; // Maximize icon
+    }
+}
+
+function closePanel() {
+    let panel = document.getElementById("transactionHistoryPanel");
+    panel.classList.remove("open", "maximized");
+    document.getElementById("maximizeBtn").innerHTML = "🗖"; // Reset button icon
+}
+
+// Function to download table as CSV
+function downloadTransactionHistory() {
+    let table = document.querySelector("#transactionContent table");
+    if (!table) {
+        alert("No transaction history to download.");
+        return;
+    }
+
+    let rows = Array.from(table.querySelectorAll("tr"));
+    let csvContent = rows.map(row => {
+        let columns = Array.from(row.querySelectorAll("td, th")).map(cell => `"${cell.innerText}"`);
+        return columns.join(",");
+    }).join("\n");
+
+    let blob = new Blob([csvContent], { type: "text/csv" });
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "transaction_history.csv";
+    link.click();
+}
+</script>
+
+
+
+        <main>
+        <div class="container">
+        
+
+<!-- KPI Cards -->
+<div class="kpi-cards">
+    <div class="card">
+        <h4>Total Receivables</h4>
+        <h5 id="totalReceivables">₱0</h5>
+    </div>
+    <div class="card">
+        <h4>Past Due %</h4>
+        <h5 id="pastDuePercent">0%</h5>
+    </div>
+    <div class="card">
+        <h4>Over 90 Days</h4>
+        <h5 id="over90">₱0</h5>
+    </div>
+</div>
+
+<!-- Chart Section -->
+<div class="charts-container">
+    <!-- Horizontal Bar Chart (Top 10 Unpaid Customers) -->
+    <div class="chart-box">
+        <h4>Top 10 Customers with Unpaid Invoices</h4>
+        <canvas id="topCustomersChart"></canvas>
+    </div>
+    
+    <!-- Pie Chart (Unpaid Customer Percentage) -->
+    <div class="chart-box pie-chart">
+    <!-- Pie Chart -->
+    <div class="pie-chart-container">
+        <canvas id="unpaidPieChart"></canvas>
+    </div>
+
+    <!-- Legend (Labels) -->
+    <div class="pie-chart-legend">
+        <ul id="pieChartLegend"></ul>
+    </div>
+</div>
+
+</div>
+
+
+<div class="tables-wrapper">
+    <!-- Aging Report Table -->
+    <div class="table-container">
+        <h3>Aging Report</h3>
+        <button id="updateAging">Update Aging</button>
+        <table id="agingTable">
+    <thead>
+        <tr>
+        <th style="display: none;">ID</th>
+            <th>Customer</th>
+            <th>Current</th>
+            <th>1-30</th>
+            <th>31-60</th>
+            <th>61-90</th>
+            <th>90+</th>
+            <th>Total Due</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php if (!empty($receivablesData)) : ?>
+            <?php foreach ($receivablesData as $row) : ?>
+                <tr data-customer-id="<?= htmlspecialchars($row['customer_name']) ?>">
+                <td style="display: none;"><?= htmlspecialchars($row['id']) ?></td>
+                    <td><?= htmlspecialchars($row['customer_name']) ?></td>
+                    <td><?= number_format($row['current_amount'], 2) ?></td>
+                    <td><?= number_format($row['past_due_30'], 2) ?></td>
+                    <td><?= number_format($row['past_due_60'], 2) ?></td>
+                    <td><?= number_format($row['past_due_90'], 2) ?></td>
+                    <td><?= number_format($row['past_due_90plus'], 2) ?></td>
+                    <td><?= number_format($row['total_due'], 2) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else : ?>
+            <tr><td colspan='7' style='text-align: center;'>No records found</td></tr>
+        <?php endif; ?>
+    </tbody>
+    <tfoot>
+        <tr>
+            <td style="font-weight: bold; text-align: right;">Total:</td>
+            <td><?= number_format($totalCurrent, 2) ?></td>
+            <td><?= number_format($totalPast30, 2) ?></td>
+            <td><?= number_format($totalPast60, 2) ?></td>
+            <td><?= number_format($totalPast90, 2) ?></td>
+            <td><?= number_format($totalPast90plus, 2) ?></td>
+            <td><?= number_format($totalDue, 2) ?></td>
+        </tr>
+    </tfoot>
+</table>
+
+    </div>
+
+    <!-- Unpaid Invoices Table -->
+    <div class="table-container small-table">
+        <h3>Unpaid Invoices</h3>
+        <table id="unpaidInvoicesTable">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Invoice No.</th>
+                    <th>Due Date</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+    <?php if ($resultUnpaid->num_rows > 0) : ?>
+        <?php while ($row = $resultUnpaid->fetch_assoc()) : ?>
+            <tr class="invoice-row" data-invoice-id="<?= $row['customer_id'] ?>" 
+    style="cursor:pointer;" 
+    onmouseover="this.style.backgroundColor='#f1b0b7';" 
+    onmouseout="this.style.backgroundColor='';">
+                <td><?= htmlspecialchars($row['customer_name']) ?></td>
+                <td><?= htmlspecialchars($row['invoice_id']) ?></td>
+                <td><?= date("M d, Y", strtotime($row['due_date'])) ?></td>
+                <td><?= number_format($row['amount'], 2) ?></td>
+            </tr>
+        <?php endwhile; ?>
+    <?php else : ?>
+        <tr><td colspan="4" style="text-align: center;">No unpaid invoices</td></tr>
+    <?php endif; ?>
+</tbody>
+        </table>
+    </div>
+</div>
+<br>
+<div class="chart-box1">
+    <h4>Paid vs Unpaid Invoices</h4>
+<canvas id="paidUnpaidChart"></canvas>
+</div>
+</div>
+
     </main>
 </div>
 
-<script>
-    function exportTableToCSV(filename) {
-    var csv = [];
-    var rows = document.querySelectorAll("#agingTable tr:not([style*='display: none'])"); // Exclude hidden rows
 
-    for (var i = 0; i < rows.length; i++) {
-        var row = [], cols = rows[i].querySelectorAll("td, th");
-        for (var j = 0; j < cols.length; j++) {
-            row.push(cols[j].innerText);
-        }
-        csv.push(row.join(","));
-    }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
-    var csvFile = new Blob(["\ufeff" + csv.join("\n")], { type: "text/csv;charset=utf-8;" });
-    var downloadLink = document.createElement("a");
-    downloadLink.download = filename;
-    downloadLink.href = window.URL.createObjectURL(csvFile);
-    downloadLink.style.display = "none";
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-}
-
-</script>
 
 <script>
-    function calculateTotals() {
-        let totalCurrent = 0, totalPast30 = 0, totalPast60 = 0, totalPast90 = 0, totalPast90plus = 0, totalDue = 0;
+const ctx = document.getElementById("paidUnpaidChart").getContext("2d");
 
-        document.querySelectorAll(".current").forEach(cell => totalCurrent += parseFloat(cell.innerText.replace(/[^0-9.-]+/g, "")) || 0);        ;
-        document.querySelectorAll(".past30").forEach(cell => totalPast30 += parseFloat(cell.innerText.replace(/[^0-9.-]+/g, "")) || 0); 
-        document.querySelectorAll(".past60").forEach(cell => totalPast60 += parseFloat(cell.innerText.replace(/[^0-9.-]+/g, "")) || 0); 
-        document.querySelectorAll(".past90").forEach(cell => totalPast90 += parseFloat(cell.innerText.replace(/[^0-9.-]+/g, "")) || 0); 
-        document.querySelectorAll(".past90plus").forEach(cell => totalPast90plus += parseFloat(cell.innerText.replace(/[^0-9.-]+/g, "")) || 0); 
-        document.querySelectorAll(".total_due").forEach(cell => totalDue += parseFloat(cell.innerText.replace(/[^0-9.-]+/g, "")) || 0); 
+// Sample Data
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const paidInvoices = [5000, 7000, 6500, 8000, 9000, 7500, 6200, 7000, 7200, 8100, 8300, 8800];
+const unpaidInvoices = [2000, 1500, 3000, 2500, 2200, 2700, 3100, 2900, 2800, 2400, 2600, 2300];
 
-        document.getElementById("totalCurrent").innerText = totalCurrent.toFixed(2);
-        document.getElementById("totalPast30").innerText = totalPast30.toFixed(2);
-        document.getElementById("totalPast60").innerText = totalPast60.toFixed(2);
-        document.getElementById("totalPast90").innerText = totalPast90.toFixed(2);
-        document.getElementById("totalPast90plus").innerText = totalPast90plus.toFixed(2);
-        document.getElementById("totalDue").innerText = totalDue.toFixed(2);
-    }
-
-    window.onload = calculateTotals;
-</script>
-
-<script>
-    function filterByDueDate() {
-    let inputDate = document.getElementById("dueDateFilter").value;
-    let table = document.getElementById("agingTable");
-    let rows = table.getElementsByTagName("tr");
-
-    let totalCurrent = 0, totalPast30 = 0, totalPast60 = 0, totalPast90 = 0, totalPast90plus = 0, totalDue = 0;
-
-    for (let i = 1; i < rows.length - 1; i++) { // Exclude header and footer
-        let dueDateCell = rows[i].getElementsByTagName("td")[2]; // Due Date is in the 3rd column (index 2)
-        if (dueDateCell) {
-            let dueDate = dueDateCell.innerText.trim();
-            let formattedDueDate = new Date(dueDate).toISOString().split("T")[0]; // Convert to YYYY-MM-DD
-            
-            if (formattedDueDate === inputDate || inputDate === "") {
-                rows[i].style.display = ""; // Show row
-
-                // Recalculate totals for visible rows
-                totalCurrent += parseFloat(rows[i].getElementsByClassName("current")[0]?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-                totalPast30 += parseFloat(rows[i].getElementsByClassName("past30")[0]?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-                totalPast60 += parseFloat(rows[i].getElementsByClassName("past60")[0]?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-                totalPast90 += parseFloat(rows[i].getElementsByClassName("past90")[0]?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-                totalPast90plus += parseFloat(rows[i].getElementsByClassName("past90plus")[0]?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-                totalDue += parseFloat(rows[i].getElementsByClassName("total_due")[0]?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-            } else {
-                rows[i].style.display = "none"; // Hide row
+const paidUnpaidChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+        labels: months, // Months on X-axis
+        datasets: [
+            {
+                label: "Paid",
+                data: paidInvoices,
+                backgroundColor: "#4CAF50",
+            },
+            {
+                label: "Unpaid",
+                data: unpaidInvoices,
+                backgroundColor: "#FF5733",
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {
+                beginAtZero: true
+            },
+            y: {
+                beginAtZero: true
             }
         }
     }
-
-    // Update footer totals
-    document.getElementById("totalCurrent").innerText = totalCurrent.toFixed(2);
-    document.getElementById("totalPast30").innerText = totalPast30.toFixed(2);
-    document.getElementById("totalPast60").innerText = totalPast60.toFixed(2);
-    document.getElementById("totalPast90").innerText = totalPast90.toFixed(2);
-    document.getElementById("totalPast90plus").innerText = totalPast90plus.toFixed(2);
-    document.getElementById("totalDue").innerText = totalDue.toFixed(2);
-}
+});
 
 </script>
 
+<script>
+// Horizontal Bar Chart (Top 10 Unpaid Customers)
+let ctx1 = document.getElementById("topCustomersChart").getContext("2d");
+let topCustomersChart = new Chart(ctx1, {
+    type: "bar",
+    data: {
+        labels: ["Customer A", "Customer B", "Customer C", "Customer D", "Customer E", "Customer F", "Customer G", "Customer H", "Customer I", "Customer J"],
+        datasets: [{
+            label: "Unpaid Amount ($)",
+            data: [10000, 9200, 8500, 7800, 7300, 6900, 6200, 5800, 5500, 5000],
+            backgroundColor: "#ed6978"
+        }]
+    },
+    options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: { beginAtZero: true }
+        }
+    }
+});
+
+const pieChartData = {
+    labels: ["Customer A", "Customer B", "Customer C", "Customer D"],
+    datasets: [{
+        data: [30, 25, 20, 25], // Example unpaid percentages
+        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"]
+    }]
+};
+
+const unpaidPieChart = new Chart(document.getElementById("unpaidPieChart"), {
+    type: "doughnut",
+    data: pieChartData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "35%", // Set cutout size
+        plugins: {
+            legend: {
+                display: false // Hide default legend
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                        let value = tooltipItem.raw;
+                        let total = pieChartData.datasets[0].data.reduce((a, b) => a + b, 0);
+                        let percentage = ((value / total) * 100).toFixed(1) + "%";
+                        return `${pieChartData.labels[tooltipItem.dataIndex]}: ${percentage}`;
+                    }
+                }
+            },
+            datalabels: {
+                color: "#fff",
+                font: { weight: "bold" },
+                formatter: (value, ctx) => {
+                    let total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    let percentage = ((value / total) * 100).toFixed(1);
+                    return percentage + "%";
+                }
+            }
+        }
+    },
+    plugins: [ChartDataLabels] // Enable DataLabels plugin
+});
+
+// Custom Legend
+const legendContainer = document.getElementById("pieChartLegend");
+legendContainer.innerHTML = ""; // Clear existing legend before adding new ones
+pieChartData.labels.forEach((label, index) => {
+    const legendItem = document.createElement("li");
+    legendItem.innerHTML = `<span style="background-color: ${pieChartData.datasets[0].backgroundColor[index]}; width: 12px; height: 12px; display: inline-block; margin-right: 5px;"></span> ${label}`;
+    legendContainer.appendChild(legendItem);
+});
+
+</script>
 
 <style>
-    .card {
-        background: white;
-        padding: 20px;
-        margin: 20px;
-        border-radius: 5px;
-        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-    }
+.container {
+    max-width: auto;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
 
-    .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0f0f0;
-    }
+.kpi-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 cards per row */
+    gap: 15px;
+    margin-top: 20px;
+}
 
-    .btn-export {
-        background: #ed6978;
-        color: white;
-        padding: 10px 15px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-    }
+.card {
+    background: #ed6978;
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
 
-    .btn-export span {
-        margin-right: 5px;
-    }
+.tables-wrapper {
+    display: flex;
+    gap: 15px;
+    justify-content: space-between;
+    margin-top: 20px;
+}
 
-    .btn-export:hover {
-        background: #d1697b;
-    }
+.table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    overflow-x: auto;
+    flex: 1;
+}
 
-    .table-responsive {
-        overflow-x: auto;
-    }
+.small-table {
+    max-width: 48%; /* Adjusts width to fit side-by-side */
+}
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-    }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px; /* Reduce font size */
+}
 
-    th, td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: center;
-    }
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px; /* Reduce padding */
+    text-align: center;
+}
 
-    th {
-        background: #ed6978;
-    }
-    tfoot {
-        background: #d1697b;
-    }
-    .date-picker {
-    padding: 8px;
-    margin-left: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+th {
+    background: #ed6978;
+    color: white;
+    font-size: 12px;
+}
+
+h3 {
+    font-size: 14px;
+    text-align: center;
+}
+
+
+.filters {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.charts-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+.chart-box1 {
+    width: 100%;
+    max-width: auto; /* Adjust as needed */
+    height: 300px; /* Reduce height */
+    margin: auto;
+}
+
+
+.chart-box {
+    width: 50%; /* Reduced width */
+    max-width: auto;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.chart-box canvas {
+    height: 250px !important;
+    max-height: 250px;
+    width: 100%;
+}
+
+.chart-box.pie-chart {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+}
+
+.pie-chart-container {
+    flex: 1;
+    max-width: 60%;
+}
+
+.pie-chart-legend {
+    flex: 1;
+    max-width: 40%;
+    text-align: left;
+}
+
+.pie-chart-legend ul {
+    list-style: none;
+    padding: 0;
+}
+
+.pie-chart-legend li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
     font-size: 14px;
 }
+
+.pie-chart-legend span {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    margin-right: 8px;
+    border-radius: 50%;
+}
+
+/* Stack charts on smaller screens */
+@media (max-width: 768px) {
+    .charts-container {
+        flex-direction: column;
+        align-items: center;
+    }
+    .chart-box {
+        width: 100%;
+    }
+}
+
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .kpi-cards {
+        grid-template-columns: repeat(2, 1fr); /* 2 cards per row on tablets */
+    }
+}
+
+@media (max-width: 480px) {
+    .kpi-cards {
+        grid-template-columns: 1fr; /* 1 card per row on mobile */
+    }
+}
+
 
 </style>
 <script>
@@ -640,5 +1001,42 @@ document.addEventListener("DOMContentLoaded", function() {
     fetchNotifications();
 });
 </script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll(".invoice-row").forEach(row => {
+        row.addEventListener("click", function() {
+            let invoiceId = this.getAttribute("data-invoice-id");
+            fetchTransactionHistory(invoiceId);
+        });
+    });
+});
+
+function fetchTransactionHistory(customerId) {
+    fetch('get_customer_transactions.php?customer_id=' + customerId)
+    .then(response => response.text())
+    .then(data => {
+        document.getElementById("transactionContent").innerHTML = data;
+        document.getElementById("transactionHistoryPanel").classList.add("open");
+    });
+}
+
+
+function closePanel() {
+    document.getElementById("transactionHistoryPanel").classList.remove("open");
+}
+
+</script>
+<script>
+document.getElementById('updateAging').addEventListener('click', function() {
+    fetch('update_aging.php')
+        .then(response => response.text())
+        .then(data => {
+            alert('Aging report updated!');
+            location.reload(); // Reload page to reflect new data
+        });
+});
+</script>
+
 </body>
 </html>

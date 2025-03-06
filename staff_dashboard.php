@@ -22,16 +22,6 @@ if (!isset($_SESSION['user_id'])) {
 $user_name = $_SESSION['name'];  // User name from session
 $user_role = $_SESSION['role_display'];  // User role from session
 
-// Fetch contracts from the database
-$sql = "SELECT * FROM contracts ORDER BY created_at DESC";
-$result = $connection->query($sql);
-
-$update_query = "UPDATE invoices 
-SET payment_status = 'overdue' 
-WHERE due_date < NOW() 
-AND payment_status NOT IN ('paid', 'cancel')";
-
-mysqli_query($connection, $update_query);
 
 
 ?>
@@ -268,44 +258,6 @@ mysqli_query($connection, $update_query);
             
             <div class="recent-grid11">
         <div class="projects">
-        <div class="card">
-                <div class="card-header">
-
-        <h3>Received Contracts</h3>
-</div>
-<div class="card-body">
-                <div class="table-responsive">
-    <table width="100%">
-        <thead>
-        <tr>
-            <th>Contract ID</th>
-            <th>Company Name</th>
-            <th>Client Name</th>
-            <th>Equipment Type</th>
-            <th>Rental Period</th>
-            <th>Received At</th>
-        </tr>
-        </thead>
-        <tbody>
-                <?php while ($row = $result->fetch_assoc()) { ?>
-                    <tr onclick="window.location.href='try1.php?id=<?php echo htmlspecialchars($row['id']); ?>'" 
-                        style='cursor:pointer;' 
-                        onmouseover="this.style.backgroundColor='#f1b0b7'" 
-                        onmouseout="this.style.backgroundColor=''">
-                        <td><?php echo htmlspecialchars($row['contract_id']); ?></td>
-                        <td><?php echo htmlspecialchars($row['company_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['client_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['equipment_type']); ?></td>
-                        <td><?php echo htmlspecialchars($row['rental_period']); ?></td>
-                        <td><?php echo htmlspecialchars($row['created_at']); ?></td>
-                    </tr>
-                <?php } ?>
-            </tbody>
-    </table>
-        </div>
-        </div>
-        </div>
-        <br>
 
             <div class="card">
                 <div class="card-header">

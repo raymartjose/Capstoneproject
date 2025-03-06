@@ -6,12 +6,20 @@ include('assets/databases/dbconfig.php');
 $customer_id = isset($_GET['customer_id']) ? (int)$_GET['customer_id'] : 0;
 
 if ($customer_id > 0) {
+    // Fetch customer name
+    $customerQuery = "SELECT name FROM customers WHERE id = $customer_id LIMIT 1";
+    $customerResult = mysqli_query($connection, $customerQuery);
+    $customerRow = mysqli_fetch_assoc($customerResult);
+    $customer_name = $customerRow['name'] ?? 'Unknown';
+
     // Query to get all invoices for the specific customer
     $query = "SELECT i.id, i.product_name, i.amount, i.payment_status, i.payment_method, i.due_date, i.issue_date
               FROM invoices i
               WHERE i.customer_id = $customer_id
               ORDER BY i.issue_date DESC";
     $result = mysqli_query($connection, $query);
+
+    echo "<h2>" . htmlspecialchars($customer_name) . "</h2>";
 
     if (mysqli_num_rows($result) > 0) {
         echo '<table width="100%">
