@@ -507,7 +507,7 @@ function downloadTransactionHistory() {
 <div class="charts-container">
     <!-- Horizontal Bar Chart (Top 10 Unpaid Customers) -->
     <div class="chart-box">
-        <h4>Top 10 Customers with Unpaid Invoices</h4>
+        <h4>Unpaid invoices amount by customer (Top 10)</h4>
         <canvas id="topCustomersChart"></canvas>
     </div>
     
