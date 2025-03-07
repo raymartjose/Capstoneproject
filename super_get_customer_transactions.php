@@ -37,7 +37,7 @@ if ($customer_id > 0) {
                 <tbody>';
 
         while ($row = mysqli_fetch_assoc($result)) {
-            echo "<tr onclick=\"window.location.href='invoice.php?id=" . htmlspecialchars($row['id']). "'\" 
+            echo "<tr onclick=\"window.location.href='super_invoice.php?id=" . htmlspecialchars($row['id']). "'\" 
                                              style='cursor:pointer;' 
                                              onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
                                              onmouseout=\"this.style.backgroundColor=''\">

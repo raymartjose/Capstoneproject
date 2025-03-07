@@ -55,7 +55,7 @@ unset($_SESSION['error_message']);
         </li>
         <li>
                 <a href="index.php"><span class="las la-file-invoice"></span>
-                <span>Invoice</span></a>
+                <span>Payroll</span></a>
             </li>
             <li>
             <a href="add_user.php"><span class="las la-users"></span>

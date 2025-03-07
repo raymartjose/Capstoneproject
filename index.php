@@ -7,6 +7,119 @@
     <link rel="icon" href="img/logo-sm.png">
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .chart-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            position: relative;
+        }
+        .chart-box {
+            width: 50%;
+            height: 250px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .chart-box canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+        }
+        .chart-labels {
+            width: 40%;
+        }
+        .chart-center-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .chart-labels ul {
+            list-style: none;
+            padding: 0;
+        }
+        .chart-labels li {
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #1a237e;
+            color: #fff;
+        }
+        .filter-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: flex-end; /* Moves elements to the right */
+}
+
+#dates{
+    font-weight: bold;
+    font-size: 40px;
+    color: #333;
+}
+
+.filter-section input[type="month"] {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    outline: none;
+    transition: all 0.3s ease-in-out;
+}
+
+.filter-section input[type="month"]:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+#download {
+    width: 15%;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 6px;
+    background: #ed6978;
+    border: none;
+    color: white;
+    transition: background 0.3s;
+    cursor: pointer;
+}
+
+#download:hover {
+    background: #d1697b;
+}
+
+    </style>
 </head>
 
 
@@ -53,7 +166,7 @@ $user_role = $_SESSION['role_display'];  // User role from session
         </li>
         <li>
                 <a href="index.php" class="active"><span class="las la-file-invoice"></span>
-                <span>Invoice</span></a>
+                <span>Payroll</span></a>
             </li>
             <li>
             <a href="add_user.php"><span class="las la-users"></span>
@@ -259,81 +372,213 @@ $user_role = $_SESSION['role_display'];  // User role from session
         </div>
 
         <main>
-
-            <div class="cards" style="cursor: pointer">
-            <div class="card-single">
-                <div>
-                    <h3>test</h3>
-                    <h4></h4>
-                    <span></span>
-                </div>
-                <div>
-                    <span class="las la-wallet"></span>
-                </div>
-            </div>
-
-
-                <div class="card-single">
-                    <div>
-                        <h3>Test</h3>
-                        <span></span>
-                    </div>
-                    <div>
-                        <span class="las la-calendar"></span>
-                    </div>
-                </div>
-
-                <div class="card-single">
-                    <div>
-                        <h3>test</h3>
-                        <h4></h4>
-                        <span></span>
-                    </div>
-                    <div>
-                        <span class="las la-file-invoice"></span>
-                    </div>
-                </div>
-
-                <div class="card-single">
-                    <div>
-                        <h3>test</h3>
-                        <h4></h4>
-                        <span></span>
-                    </div>
-                    <div>
-                        <span class="las la-user-tie"></span>
-                    </div>
-                </div>
-
-            </div>
-<br>
-
-            <div class="recent-grid11">
-    <div class="projects">
-        <div class="card">
-            <div class="card-header">
-                <h3>Generated Invoice</h3>
-                
-            </div>
-
-            <div class="card-body">
-            <div class="table-responsive" id="table-container">
-                    <table width="100%">
-                        <thead>
-                            <tr id="table-header"></tr>
-                        </thead>
-                        <tbody id="table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <div class="container">
+        <div class="filter-section" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+        <span id="dates" class="las la-calendar"><label for="monthFilter"></label></span>
+        <input type="month" id="monthFilter" onchange="fetchFilteredData()">
+        <button id="download" onclick="downloadCSV()">Download CSV</button>
     </div>
+        <div class="chart-container">
+        <div class="chart-box" style="display: flex; align-items: center;">
+    <canvas id="payrollChart" style="max-width: 300px; max-height: 300px; border-right: 3px solid #ccc; padding-right: 10px;"></canvas>
+    <div class="chart-center-text" id="chartTotal" style="font-weight: bold; font-size: 15px;"></div>
+</div>
+<div class="chart-labels" id="chartLabels">
+    <ul id="labelList" style="list-style: none; padding-left: 20px;"></ul>
+</div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Department</th>
+                    <th>Employee Count</th>
+                    <th>Payroll Count</th>
+                    <th>Total Gross Pay</th>
+                    <th>Net Pay</th>
+                </tr>
+            </thead>
+            <tbody id="payrollTableBody">
+            <?php
+    include "assets/databases/dbconfig.php";
 
+    $sql = "SELECT 
+                e.department, 
+                COUNT(DISTINCT e.id) AS employee_count, 
+                COUNT(p.id) AS payroll_count,
+                SUM(p.gross_pay) AS total_gross_pay,
+                SUM(p.net_pay) AS total_net_pay
+            FROM employees e
+            LEFT JOIN payroll p ON e.employee_id = p.employee_id
+            GROUP BY e.department";
+    
+    $result = $connection->query($sql);
 
+    $data = [];
 
+    if ($result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $data[] = $row;
+            echo "<tr>
+                    <td>{$row['department']}</td>
+                    <td>{$row['employee_count']}</td>
+                    <td>{$row['payroll_count']}</td>
+                    <td>₱" . number_format($row['total_gross_pay'], 2) . "</td>
+                    <td>₱" . number_format($row['total_net_pay'], 2) . "</td>
+                  </tr>";
+        }
+    } else {
+        echo "<tr><td colspan='6'>No payroll data available</td></tr>";
+    }
+
+    $connection->close();
+    ?>
+</tbody>
+            </tbody>
+        </table>
+    </div>
         
 </main>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const monthFilter = document.getElementById("monthFilter");
+    monthFilter.value = new Date().toISOString().slice(0, 7); // Set default to current month
+    fetchFilteredData();
+});
+
+function fetchFilteredData() {
+    const month = document.getElementById("monthFilter").value;
+    fetch(`fetch_payroll_data.php?month=${month}`)
+        .then(response => response.json())
+        .then(data => {
+            updateTable(data);
+            updateChart(data, month);
+        })
+        .catch(error => console.error("Error fetching payroll data:", error));
+}
+
+function updateTable(data) {
+    let tbody = document.getElementById("payrollTableBody");
+    tbody.innerHTML = "";
+
+    if (data.length > 0) {
+        data.forEach(row => {
+            tbody.innerHTML += `<tr>
+                <td>${row.department}</td>
+                <td>${row.employee_count}</td>
+                <td>${row.payroll_count}</td>
+                <td>₱${parseFloat(row.total_gross_pay).toLocaleString()}</td>
+                <td>₱${parseFloat(row.total_net_pay).toLocaleString()}</td>
+            </tr>`;
+        });
+    } else {
+        tbody.innerHTML = "<tr><td colspan='5'>No payroll data available</td></tr>";
+    }
+}
+
+function updateChart(data, selectedMonth) {
+    let labels = [];
+    let values = [];
+    let totalNetPay = 0;
+    let colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4CAF50', '#9C27B0', '#FF9800', '#009688'];
+
+    if (data.length > 0) {
+        data.forEach((item, index) => {
+            labels.push(item.department);
+            values.push(parseFloat(item.total_net_pay));
+            totalNetPay += parseFloat(item.total_net_pay);
+        });
+    } else {
+        labels = ["No Data"];
+        values = [1];
+        colors = ["#d3d3d3"];
+    }
+
+    document.getElementById('chartTotal').innerHTML = `Net Pay:<br>₱${totalNetPay.toLocaleString()}`;
+
+
+    // Destroy previous chart instance if it exists
+    if (window.payrollChart && typeof window.payrollChart.destroy === "function") {
+    window.payrollChart.destroy();
+}
+
+
+    const ctx = document.getElementById('payrollChart').getContext('2d');
+    window.payrollChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '85%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function (tooltipItem) {
+                            let index = tooltipItem.dataIndex;
+                            let percentage = ((values[index] / totalNetPay) * 100).toFixed(2);
+                            return `${labels[index]}: ₱${values[index].toLocaleString()} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    let labelList = document.getElementById('labelList');
+    labelList.innerHTML = '';
+    if (data.length > 0) {
+        data.forEach((item, index) => {
+            let percentage = ((values[index] / totalNetPay) * 100).toFixed(2);
+            let listItem = `<li style="color:${colors[index]}; font-weight: bold;">
+                <span style="display: inline-block; width: 12px; height: 12px; background-color:${colors[index]}; margin-right: 5px;"></span>
+                ${item.department}: ₱${values[index].toLocaleString()} (${percentage}%)
+            </li>`;
+            labelList.innerHTML += listItem;
+        });
+    } else {
+        labelList.innerHTML = "<li>No payroll data available</li>";
+    }
+}
+
+
+
+function downloadCSV() {
+    const month = document.getElementById("monthFilter").value;
+    fetch(`fetch_payroll_data.php?month=${month}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.length === 0) {
+                alert("No payroll data available for this month.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Department,Employee Count,Payroll Count,Total Gross Pay,Net Pay\n";
+
+            data.forEach(row => {
+                csvContent += `${row.department},${row.employee_count},${row.payroll_count},${row.total_gross_pay},${row.total_net_pay}\n`;
+            });
+
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `payroll_data_${month}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        })
+        .catch(error => console.error("Error downloading CSV:", error));
+}
+
+document.addEventListener("DOMContentLoaded", fetchFilteredData);
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const openModalBtn = document.getElementById("openChangePasswordModal");

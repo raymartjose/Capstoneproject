@@ -26,45 +26,38 @@ $user_role = $_SESSION['role_display'];  // User role from session
 
 
 <?php
-$tax_rate = 0.25;
 
-// Fetch the monthly income for the current year and the previous year from your transactions table
-$sql_income = "
+$sql_income_expenses = "
     SELECT 
-        MONTH(transaction_date) AS month, 
-        SUM(CASE WHEN YEAR(transaction_date) = YEAR(CURRENT_DATE) THEN amount ELSE 0 END) AS current_year_income,
-        SUM(CASE WHEN YEAR(transaction_date) = YEAR(CURRENT_DATE) - 1 THEN amount ELSE 0 END) AS last_year_income
-    FROM transactions
-    GROUP BY MONTH(transaction_date)
-    ORDER BY MONTH(transaction_date)
+        DATE_FORMAT(t.created_at, '%Y-%m') AS transaction_month, 
+        SUM(CASE WHEN YEAR(t.created_at) = YEAR(CURRENT_DATE) THEN t.amount ELSE 0 END) AS total_income_current_year,
+        SUM(CASE WHEN YEAR(t.created_at) = YEAR(CURRENT_DATE) - 1 THEN t.amount ELSE 0 END) AS total_income_last_year,
+        COALESCE(SUM(e.amount), 0) AS total_expenses
+    FROM transactions t
+    LEFT JOIN employee_expenses e 
+        ON DATE_FORMAT(e.expense_date, '%Y-%m') = DATE_FORMAT(t.created_at, '%Y-%m')
+    GROUP BY transaction_month
+    ORDER BY transaction_month DESC
 ";
 
-$result_income = $connection->query($sql_income);
-
-// Prepare data arrays
-$months = [];
-$current_year_income_data = [];
-$last_year_income_data = [];
-$tax_data = [];
-
-while ($row = $result_income->fetch_assoc()) {
-    $months[] = $row['month']; // Month (1-12)
-    $current_year_income_data[] = $row['current_year_income']; // Current year income for the month
-    $last_year_income_data[] = $row['last_year_income']; // Last year income for the month
-
-    // Calculate the tax deduction based on 25% corporate tax rate
-    $tax_deduction = $row['current_year_income'] * $tax_rate;
-    $tax_data[] = $tax_deduction; // Tax deducted for the month
+$result_income_expenses = $connection->query($sql_income_expenses);
+$income_expenses_data = [];
+while ($row = $result_income_expenses->fetch_assoc()) {
+    $income_expenses_data[] = [
+        'transaction_month' => $row['transaction_month'],
+        'total_income_current_year' => $row['total_income_current_year'],
+        'total_income_last_year' => $row['total_income_last_year'],
+        'total_expenses' => $row['total_expenses'] ?? 0 // Ensure it defaults to 0 if null
+    ];
 }
 
-// Convert PHP arrays to JSON for JavaScript
-$months_json = json_encode($months);
-$current_year_income_json = json_encode($current_year_income_data);
-$last_year_income_json = json_encode($last_year_income_data);
-$tax_json = json_encode($tax_data);
-
-
+// Pass the data to JavaScript (convert to JSON)
+$income_expenses_json = json_encode($income_expenses_data);
+// Pass the data to JavaScript
 ?>
+
+
+
 
 
 
@@ -303,142 +296,105 @@ $tax_json = json_encode($tax_data);
 
 
         <main>
-        <canvas id="monthlyIncomeChart"></canvas>
-<canvas id="taxDeductionChart"></canvas>
+        <div class="chart-container">
+            <div class="chart-box">
+          
+            <canvas id="cashFlowChart"></canvas>
+
+                </div>
+<br>
+                
+                    <canvas id="taxDeductionChart"></canvas>
+                
+            
+        </div>
 
 
 
     </main>
 </div>
+<style>
+    .chart-container {
+        display: flex;
+        flex-wrap: wrap; /* Allow wrapping for smaller screens */
+        justify-content: space-between;
+        gap: 20px;
+        padding: 20px;
+    }
+    .chart-box {
+        width: 100%; /* Set a base width */
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+    .chart-box canvas {
+        height: 250px !important;
+        max-height: 250px;
+        width: 100%; /* Make canvas responsive */
+    }
+    /* For small screens */
+    @media (max-width: 768px) {
+        .chart-box {
+            width: 100%; /* Full width for smaller screens */
+        }
+    }
+</style>
+
 
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
+
 <script>
-    window.onload = function() {
-        const months = <?php echo $months_json; ?>;
-        const incomeData = <?php echo $income_json; ?>;
-        const taxData = <?php echo $tax_json; ?>;
+const incomeVsExpensesData = <?php echo $income_expenses_json; ?>;
 
-        const ctxIncome = document.getElementById('monthlyIncomeChart').getContext('2d');
-        const monthlyIncomeChart = new Chart(ctxIncome, {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [{
-                    label: 'Monthly Income',
-                    data: incomeData,
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
+// Prepare data for the chart
+const labels = incomeVsExpensesData.map(data => data.transaction_month);
+const currentYearCashFlow = incomeVsExpensesData.map(data => data.total_income_current_year - data.total_expenses);
+const lastYearCashFlow = incomeVsExpensesData.map(data => data.total_income_last_year - data.total_expenses);
+
+const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
+    type: 'line',
+    data: {
+        labels: labels, // Use transaction_month as labels
+        datasets: [
+            {
+                label: 'Current Year Cash Flow',
+                data: currentYearCashFlow, // Current year cash flow
+                fill: false,
+                borderColor: '#30c0dd',
+                tension: 0.1
             },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
+            {
+                label: 'Last Year Cash Flow',
+                data: lastYearCashFlow, // Last year cash flow
+                fill: false,
+                borderColor: '#ff5733',
+                tension: 0.1
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'top' },
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return value.toFixed(2); // Show two decimal places
                     }
                 }
             }
-        });
-
-        const ctxTax = document.getElementById('taxDeductionChart').getContext('2d');
-        const taxDeductionChart = new Chart(ctxTax, {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [{
-                    label: 'Tax Deduction (25%)',
-                    data: taxData,
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
+        }
     }
-</script><script>
-    window.onload = function() {
-        const months = <?php echo $months_json; ?>;
-        const currentYearIncome = <?php echo $current_year_income_json; ?>;
-        const lastYearIncome = <?php echo $last_year_income_json; ?>;
-        const taxData = <?php echo $tax_json; ?>;
+});
 
-        // Monthly Income Chart with comparison for this year vs last year
-        const ctxIncome = document.getElementById('monthlyIncomeChart').getContext('2d');
-        const monthlyIncomeChart = new Chart(ctxIncome, {
-            type: 'line',
-            data: {
-                labels: months,
-                datasets: [
-                    {
-                        label: 'Current Year Income',
-                        data: currentYearIncome,
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 2,
-                        pointStyle: 'circle', // Dots on the line
-                        pointRadius: 5, // Size of the dots
-                        pointBackgroundColor: 'rgba(54, 162, 235, 1)', // Dot color
-                        fill: false // No fill below the line
-                    },
-                    {
-                        label: 'Last Year Income',
-                        data: lastYearIncome,
-                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 2,
-                        pointStyle: 'circle',
-                        pointRadius: 5,
-                        pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-                        fill: false
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // Tax Deduction Chart (Bar)
-        const ctxTax = document.getElementById('taxDeductionChart').getContext('2d');
-        const taxDeductionChart = new Chart(ctxTax, {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [{
-                    label: 'Tax Deduction (25%)',
-                    data: taxData,
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-    }
 </script>
 
 

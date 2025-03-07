@@ -103,7 +103,7 @@ $transaction_query->close();
         </li>
             <li>
                 <a href="index.php"><span class="las la-file-invoice"></span>
-                <span>Invoice</span></a>
+                <span>Payroll</span></a>
             </li>
             <li>
             <a href="add_user.php"><span class="las la-users"></span>
@@ -174,7 +174,7 @@ $transaction_query->close();
             <label for="request_type">Request Type:</label>
             <select id="request_type" name="request_type" disabled>
             <option value="budget_requests" <?php if ($request_data['request_type'] == 'budget_requests') echo 'selected'; ?>>Budget Requests</option>
-            <option value="expense_reimbursement" <?php if ($request_data['request_type'] == 'expense_reimbursement') echo 'selected'; ?>>Epense Reimbursement</option>
+            <option value="expense_reimbursement" <?php if ($request_data['request_type'] == 'expense_reimbursement') echo 'selected'; ?>>Expense Reimbursement</option>
             <option value="capital_expenditures" <?php if ($request_data['request_type'] == 'capital_expenditures') echo 'selected'; ?>>Capital Expenditures</option>
             <option value="other" <?php if ($request_data['request_type'] == 'other') echo 'selected'; ?>>Other</option>
             </select>

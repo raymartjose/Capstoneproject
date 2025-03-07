@@ -65,10 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <a href="#"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
-                <li><a href="staff_analytics.php"><span class="las la-chart-line"></span> Analytics</a></li>
                 <li><a href="#"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="#"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="#"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>
             <li>
@@ -139,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label for="request_type">Request Type:</label>
             <select id="request_type" name="request_type" required>
                 <option value="budget_requests">Budget Requests</option>
-                <option value="expense_reimbursement">Epense Reimbursement</option>
+                <option value="expense_reimbursement">Expense Reimbursement</option>
                 <option value="capital_expenditures">Capital Expenditures</option>
                 <option value="other">Other</option>
             </select>

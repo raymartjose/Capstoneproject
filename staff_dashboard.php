@@ -6,14 +6,14 @@
     <title>Integrated Finance System</title>
     <link rel="icon" href="img/logo-sm.png">
     <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/chart.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
-    
 </head>
 <body>
 
 <?php
-include('assets/databases/dbconfig.php');
-session_start();
+include "assets/databases/dbconfig.php";
+session_start();  // Start the session
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");  // Redirect to login if not logged in
     exit();
@@ -22,9 +22,433 @@ if (!isset($_SESSION['user_id'])) {
 $user_name = $_SESSION['name'];  // User name from session
 $user_role = $_SESSION['role_display'];  // User role from session
 
+$currentMonth = isset($_GET['month']) ? $_GET['month'] : date('m');
+$currentYear = isset($_GET['year']) ? $_GET['year'] : date('Y');
 
+$currentBudget = 0;
+
+// Fetch monthly income and expenses comparison
+$sql_income_expenses = "SELECT 
+    period AS month, 
+    SUM(total_income) AS total_income, 
+    SUM(total_expenses) AS total_expenses 
+FROM (
+    -- Income per month
+    SELECT DATE_FORMAT(transaction_date, '%Y-%m') AS period, 
+           SUM(amount) AS total_income, 
+           0 AS total_expenses 
+    FROM transactions 
+    GROUP BY period
+    
+    UNION
+
+    -- Expenses per month (even if no income)
+    SELECT DATE_FORMAT(expense_date, '%Y-%m') AS period, 
+           0 AS total_income, 
+           SUM(amount) AS total_expenses 
+    FROM employee_expenses 
+    GROUP BY period
+) AS combined 
+GROUP BY period 
+ORDER BY period DESC
+";
+
+$result_income_expenses = $connection->query($sql_income_expenses);
+$income_expenses_data = [];
+while ($row = $result_income_expenses->fetch_assoc()) {
+    $income_expenses_data[] = [
+        'month' => $row['month'],
+        'total_income' => $row['total_income'],
+        'total_expenses' => $row['total_expenses']
+    ];
+}
+
+
+// Fetch total income for the given month and year
+$sql_income = "SELECT SUM(amount) AS total_income 
+               FROM transactions 
+               WHERE MONTH(transaction_date) = ? 
+               AND YEAR(transaction_date) = ?";
+
+$stmt = $connection->prepare($sql_income);
+$stmt->bind_param("ii", $currentMonth, $currentYear);
+$stmt->execute();
+$result_income = $stmt->get_result();
+$row_income = $result_income->fetch_assoc();
+
+$total_income = $row_income['total_income'] ?? 0; // Default to 0 if null
+
+// Define tax rate (25% in this example)
+$taxRate = 0.25;
+
+// Calculate tax deduction
+$taxDeduction = $total_income * $taxRate;
+
+// Initialize total expenses to 0
+$totalExpenses = 0;
+
+// Fetch total expenses from employee_expenses table
+$expensesQuery = "SELECT SUM(amount) AS total_expenses 
+                  FROM employee_expenses 
+                  WHERE MONTH(expense_date) = ? AND YEAR(expense_date) = ?";
+$expensesResult = $connection->prepare($expensesQuery);
+$expensesResult->bind_param("ii", $currentMonth, $currentYear);
+$expensesResult->execute();
+$expensesRow = $expensesResult->get_result()->fetch_assoc();
+
+// Check if result is not empty and 'total_expenses' is set
+if ($expensesRow && isset($expensesRow['total_expenses'])) {
+    $totalExpenses = $expensesRow['total_expenses'];
+}
+
+// Fetch net pay from payroll table
+$payrollQuery = "SELECT SUM(net_pay) AS total_netpay 
+                 FROM payroll 
+                 WHERE MONTH(processed_at) = ? AND YEAR(processed_at) = ?";
+$payrollResult = $connection->prepare($payrollQuery);
+$payrollResult->bind_param("ii", $currentMonth, $currentYear);
+$payrollResult->execute();
+$payrollRow = $payrollResult->get_result()->fetch_assoc();
+
+// Check if result is not empty and 'total_netpay' is set
+$totalNetPay = $payrollRow['total_netpay'] ?? 0;
+
+// Add total expenses and total netpay
+$totalExpenses += $totalNetPay;
+
+// Calculate net income after tax
+$netIncome = $total_income - $totalExpenses - $taxDeduction;
+
+// Fetch income vs expenses data
+$sql_income_expenses = "WITH months AS (
+    SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL -n MONTH), '%Y-%m') AS month
+    FROM (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5) AS nums
+),
+current_year AS (
+    SELECT DATE_FORMAT(transaction_date, '%Y-%m') AS month, SUM(amount) AS total_income
+    FROM transactions
+    WHERE YEAR(transaction_date) = YEAR(CURDATE())
+    GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
+),
+last_year AS (
+    SELECT DATE_FORMAT(transaction_date, '%Y-%m') AS month, SUM(amount) AS total_income
+    FROM transactions
+    WHERE YEAR(transaction_date) = YEAR(CURDATE()) - 1
+    GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
+),
+current_expenses AS (
+    SELECT DATE_FORMAT(expense_date, '%Y-%m') AS month, SUM(amount) AS total_expenses
+    FROM employee_expenses
+    WHERE YEAR(expense_date) = YEAR(CURDATE())
+    GROUP BY DATE_FORMAT(expense_date, '%Y-%m')
+),
+last_expenses AS (
+    SELECT DATE_FORMAT(expense_date, '%Y-%m') AS month, SUM(amount) AS total_expenses
+    FROM employee_expenses
+    WHERE YEAR(expense_date) = YEAR(CURDATE()) - 1
+    GROUP BY DATE_FORMAT(expense_date, '%Y-%m')
+),
+current_payroll AS (
+    SELECT DATE_FORMAT(processed_at, '%Y-%m') AS month, SUM(net_pay) AS total_payroll
+    FROM payroll
+    WHERE YEAR(processed_at) = YEAR(CURDATE())
+    GROUP BY DATE_FORMAT(processed_at, '%Y-%m')
+),
+last_payroll AS (
+    SELECT DATE_FORMAT(processed_at, '%Y-%m') AS month, SUM(net_pay) AS total_payroll
+    FROM payroll
+    WHERE YEAR(processed_at) = YEAR(CURDATE()) - 1
+    GROUP BY DATE_FORMAT(processed_at, '%Y-%m')
+)
+SELECT 
+    m.month,
+    COALESCE(c.total_income, 0) AS current_income,
+    COALESCE(l.total_income, 0) AS last_year_income,
+    COALESCE(c.total_income, 0) - COALESCE(l.total_income, 0) AS income_difference,
+    CASE 
+        WHEN COALESCE(l.total_income, 0) = 0 THEN NULL
+        ELSE ((COALESCE(c.total_income, 0) - COALESCE(l.total_income, 0)) / COALESCE(l.total_income, 1)) * 100 
+    END AS income_percentage_change,
+    
+    -- Total Expenses (Including Payroll)
+    COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0) AS current_expenses,
+    COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0) AS last_year_expenses,
+    (COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0)) - (COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0)) AS expense_difference,
+    CASE 
+        WHEN (COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0)) = 0 THEN NULL
+        ELSE (((COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0)) - (COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0))) / (COALESCE(le.total_expenses, 1) + COALESCE(lp.total_payroll, 1))) * 100 
+    END AS expense_percentage_change,
+
+    -- Separate Payroll Expense Columns
+    COALESCE(cp.total_payroll, 0) AS current_payroll_expenses,
+    COALESCE(lp.total_payroll, 0) AS last_year_payroll_expenses
+
+FROM months m
+LEFT JOIN current_year c ON m.month = c.month
+LEFT JOIN last_year l ON m.month = l.month
+LEFT JOIN current_expenses ce ON m.month = ce.month
+LEFT JOIN last_expenses le ON m.month = le.month
+LEFT JOIN current_payroll cp ON m.month = cp.month
+LEFT JOIN last_payroll lp ON m.month = lp.month
+ORDER BY m.month ASC;
+";
+
+$result_cash_flow = $connection->query($sql_income_expenses);
+
+$cash_flow_data = [];
+$forecast_data = []; // New array for forecast data
+
+$forecast_months = 6; // Forecast for next 6 months
+$last_actual_month = end($cash_flow_data)['month'] ?? date('Y-m');
+
+// Fetch actual cash flow data from the database
+if ($result_cash_flow->num_rows > 0) {
+    while ($row = $result_cash_flow->fetch_assoc()) {
+        $cash_flow_data[] = [
+            'month' => $row['month'],
+            'current_income' => $row['current_income'],
+            'last_year_income' => $row['last_year_income'],
+            'income_difference' => $row['income_difference'],
+            'income_percentage_change' => $row['income_percentage_change'] !== null ? number_format($row['income_percentage_change'], 2) . '%' : 'N/A',
+
+            'current_expenses' => $row['current_expenses'],
+            'last_year_expenses' => $row['last_year_expenses'],
+            'expense_difference' => $row['expense_difference'],
+            'expense_percentage_change' => $row['expense_percentage_change'] !== null ? number_format($row['expense_percentage_change'], 2) . '%' : 'N/A',
+
+            'current_payroll_expenses' => $row['current_payroll_expenses'],
+            'last_year_payroll_expenses' => $row['last_year_payroll_expenses'],
+        ];
+    }
+    // Get the last actual recorded month
+    $last_actual_month = end($cash_flow_data)['month'] ?? date('Y-m');
+} else {
+    echo "No data found.";
+}
+
+// Generate Forecast Data Separately
+for ($i = 1; $i <= $forecast_months; $i++) {
+    $forecast_month = date('Y-m', strtotime("+$i months", strtotime($last_actual_month)));
+
+    // Simple forecast using last year’s percentage change
+    $last_year_income = end($cash_flow_data)['last_year_income'] ?? 0;
+    $current_income = end($cash_flow_data)['current_income'] ?? 0;
+    $income_growth_rate = ($last_year_income > 0) ? ($current_income - $last_year_income) / $last_year_income : 0;
+    $forecast_income = $current_income + ($current_income * $income_growth_rate);
+
+    $last_year_expenses = end($cash_flow_data)['last_year_expenses'] ?? 0;
+    $current_expenses = end($cash_flow_data)['current_expenses'] ?? 0;
+    $expense_growth_rate = ($last_year_expenses > 0) ? ($current_expenses - $last_year_expenses) / $last_year_expenses : 0;
+    $forecast_expenses = $current_expenses + ($current_expenses * $expense_growth_rate);
+
+    $forecast_data[] = [
+        'month' => $forecast_month,
+        'current_income' => round($forecast_income, 2),
+        'current_expenses' => round($forecast_expenses, 2),
+        'is_forecast' => true
+    ];
+}
+
+// Merge forecast data into cash flow data for full dataset
+$cash_flow_data = array_merge($cash_flow_data, $forecast_data);
+
+// Fetch total company budget from session or database
+$totalBudget = $_SESSION['totalBudget'] ?? 0;
+if ($totalBudget === 0) {
+    $budgetQuery = $connection->prepare("SELECT amount FROM company_budget WHERE month = ? AND year = ?");
+    $budgetQuery->bind_param("ii", $currentMonth, $currentYear);
+    $budgetQuery->execute();
+    $budgetResult = $budgetQuery->get_result();
+    $budgetData = $budgetResult->fetch_assoc();
+    $totalBudget = $budgetData['amount'] ?? 0;
+    $budgetQuery->close();
+}
+
+// Fetch total approved budget requests from session or database
+$approvedBudget = $_SESSION['approvedBudget'] ?? 0;
+if ($approvedBudget === 0) {
+    $approvedQuery = $connection->prepare("SELECT SUM(amount) AS approved_budget FROM requests WHERE status = 'Approved' AND MONTH(created_at) = ? AND YEAR(created_at) = ?");
+    $approvedQuery->bind_param("ii", $currentMonth, $currentYear);
+    $approvedQuery->execute();
+    $approvedResult = $approvedQuery->get_result();
+    $approvedData = $approvedResult->fetch_assoc();
+    $approvedBudget = $approvedData['approved_budget'] ?? 0;
+    $approvedQuery->close();
+}
+
+// Calculate usage percentage
+$budgetUsage = ($totalBudget > 0) ? ($approvedBudget / $totalBudget) * 100 : 0;
+$remainingBudget = max(0, 100 - $budgetUsage);
+
+// Fetch total income for the current month
+$incomeQuery = $connection->prepare("SELECT SUM(amount) AS total_income 
+                                      FROM transactions 
+                                      WHERE MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?");
+$incomeQuery->bind_param("ii", $currentMonth, $currentYear);
+$incomeQuery->execute();
+$incomeResult = $incomeQuery->get_result();
+$incomeData = $incomeResult->fetch_assoc();
+$totalIncome = $incomeData['total_income'] ?? 0;
+
+// Fetch income goal for the current month
+$goalQuery = $connection->prepare("SELECT goal_amount FROM income_goals WHERE month = ? AND year = ?");
+$goalQuery->bind_param("ii", $currentMonth, $currentYear);
+$goalQuery->execute();
+$goalResult = $goalQuery->get_result();
+$goalData = $goalResult->fetch_assoc();
+$incomeGoal = $goalData['goal_amount'] ?? 0;
+
+// Calculate income progress
+$incomeProgress = ($incomeGoal > 0) ? ($totalIncome / $incomeGoal) * 100 : 0;
+
+// Handle budget update
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['budget_amount'])) {
+    $newBudget = floatval($_POST['budget_amount']);
+
+    // Check if a record exists for this month
+    $checkQuery = $connection->prepare("SELECT * FROM company_budget WHERE month = ? AND year = ?");
+    $checkQuery->bind_param("ii", $currentMonth, $currentYear);
+    $checkQuery->execute();
+    $result = $checkQuery->get_result();
+
+    if ($result->num_rows > 0) {
+        $stmt = $connection->prepare("UPDATE company_budget SET amount = ? WHERE month = ? AND year = ?");
+        $stmt->bind_param("dii", $newBudget, $currentMonth, $currentYear);
+    } else {
+        $stmt = $connection->prepare("INSERT INTO company_budget (amount, month, year) VALUES (?, ?, ?)");
+        $stmt->bind_param("dii", $newBudget, $currentMonth, $currentYear);
+    }
+
+    $stmt->execute();
+    header("Location: analytics.php?success=1");
+    exit();
+}
+
+// Handle income goal update
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['income_goal_amount'])) {
+    $newGoal = floatval($_POST['income_goal_amount']);
+
+    // Check if a record exists for this month
+    $checkQuery = $connection->prepare("SELECT * FROM income_goals WHERE month = ? AND year = ?");
+    $checkQuery->bind_param("ii", $currentMonth, $currentYear);
+    $checkQuery->execute();
+    $result = $checkQuery->get_result();
+
+    if ($result->num_rows > 0) {
+        $stmt = $connection->prepare("UPDATE income_goals SET goal_amount = ? WHERE month = ? AND year = ?");
+        $stmt->bind_param("dii", $newGoal, $currentMonth, $currentYear);
+    } else {
+        $stmt = $connection->prepare("INSERT INTO income_goals (goal_amount, month, year) VALUES (?, ?, ?)");
+        $stmt->bind_param("dii", $newGoal, $currentMonth, $currentYear);
+    }
+
+    $stmt->execute();
+    header("Location: analytics.php?success=1");
+    exit();
+}
+
+
+// Fetch income breakdown by payment method
+$paymentMethodQuery = "SELECT payment_method, SUM(amount) AS total_income FROM transactions GROUP BY payment_method";
+$paymentMethodResult = $connection->query($paymentMethodQuery);
+
+$paymentMethods = [];
+$paymentMethodLabels = [
+    'cash' => 'Cash',
+    'credit' => 'Credit Card',
+    'bank_transfer' => 'Bank Transfer',
+    'online' => 'E-Wallet'
+];
+
+while ($row = $paymentMethodResult->fetch_assoc()) {
+    // Use mapped labels instead of raw enum values
+    $displayLabel = $paymentMethodLabels[$row['payment_method']] ?? ucfirst($row['payment_method']);
+    $paymentMethods[$displayLabel] = $row['total_income'];
+}
+
+echo "<script>const paymentMethods = " . json_encode($paymentMethods) . ";</script>";
+
+
+// Fetch customer transaction data
+$customerQuery = "SELECT c.id AS customer_id, c.name AS customer_name, c.email, SUM(t.amount) AS total_amount, SUM(i.discount_amount) AS total_discount FROM transactions t JOIN invoices i ON t.description LIKE CONCAT('%', i.id, '%') JOIN customers c ON i.customer_id = c.id GROUP BY c.id, c.name, c.email LIMIT 25";
+$customerResult = $connection->query($customerQuery);
 
 ?>
+
+
+<?php
+
+// Initialize arrays
+$months = range(1, 12); // Ensure all 12 months are present
+$income_data = array_fill(0, 12, 0); // Default income = 0
+$tax_data = array_fill(0, 12, 0); // Default tax = 0
+
+// Fetch monthly income from the database
+$sql_income = "SELECT MONTH(transaction_date) AS month, SUM(amount) AS total_income 
+               FROM transactions
+               GROUP BY MONTH(transaction_date)
+               ORDER BY MONTH(transaction_date)";
+
+$result_income = $connection->query($sql_income);
+
+// Tax rate (adjust as needed)
+$tax_rate = 0.25; // 25% Tax deduction
+
+// Populate actual data
+while ($row = $result_income->fetch_assoc()) {
+    $month_index = (int)$row['month'] - 1; // Convert to array index (0-based)
+    $income_data[$month_index] = (float)$row['total_income']; // Assign income
+    $tax_data[$month_index] = $income_data[$month_index] * $tax_rate; // Calculate tax
+}
+
+// Convert PHP arrays to JSON for JavaScript
+$months_json = json_encode($months);
+$income_json = json_encode($income_data);
+$tax_json = json_encode($tax_data);
+?>
+
+<?php
+function getTopCustomers($connection, $limit = 10) {
+    $currentMonth = date('m'); // Get current month (01-12)
+    $currentYear = date('Y');  // Get current year (e.g., 2025)
+
+    $sql = "SELECT c.name AS customer_name, SUM(i.total_amount) AS total_spent
+            FROM invoices i
+            INNER JOIN customers c ON i.customer_id = c.id
+            WHERE LOWER(i.payment_status) = 'paid' 
+            AND MONTH(i.issue_date) = ? 
+            AND YEAR(i.issue_date) = ?
+            GROUP BY c.name
+            ORDER BY total_spent DESC
+            LIMIT ?";
+
+    $stmt = $connection->prepare($sql);
+    $stmt->bind_param("iii", $currentMonth, $currentYear, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $customers = [];
+    $spending = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $customers[] = $row['customer_name'];
+        $spending[] = $row['total_spent'];
+    }
+
+    return [
+        'customers' => $customers,
+        'spending' => $spending,
+    ];
+}
+
+$customerData = getTopCustomers($connection);
+
+$customerNames = json_encode($customerData['customers'], JSON_HEX_TAG);
+$totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
+
+?>
+
+
 <input type="checkbox" id="nav-toggle">
 <div class="sidebar">
     <div class="sidebar-brand">
@@ -32,7 +456,7 @@ $user_role = $_SESSION['role_display'];  // User role from session
     </div>
 
     <div class="sidebar-menu">
-        <ul>
+    <ul>
         <li>
                 <a href="staff_dashboard.php" class="active"><span class="las la-tachometer-alt"></span>
                 <span>Dashboard</span></a>
@@ -45,10 +469,9 @@ $user_role = $_SESSION['role_display'];  // User role from session
             <a href="#"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
-                <li><a href="staff_analytics.php"><span class="las la-chart-line"></span> Analytics</a></li>
                 <li><a href="#"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="#"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="#"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>
             <li>
@@ -63,7 +486,6 @@ $user_role = $_SESSION['role_display'];  // User role from session
     </div>
 </div>
 
-
     <div class="main-content">
         <header>
             <div class="header-title">
@@ -74,7 +496,40 @@ $user_role = $_SESSION['role_display'];  // User role from session
                 Dashboard
                 </h2>
                 </div>
-                
+
+                <div class="form-container">
+    <form id="filter-form" method="GET" action="">
+        <!-- Filter fields here -->
+    <label for="month">Month:</label>
+    <select name="month" id="month">
+        <?php for ($m = 1; $m <= 12; $m++): ?>
+            <option value="<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>" <?= ($m == $currentMonth) ? 'selected' : '' ?>>
+                <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
+            </option>
+        <?php endfor; ?>
+    </select>
+
+    <label for="year">Year:</label>
+    <select name="year" id="year">
+        <?php for ($y = date('Y') - 5; $y <= date('Y'); $y++): ?>
+            <option value="<?= $y ?>" <?= ($y == $currentYear) ? 'selected' : '' ?>><?= $y ?></option>
+        <?php endfor; ?>
+    </select>
+
+    <button type="submit">Filter</button>
+</form>
+
+
+    <form id="export-form" method="POST" action="export_transactions.php">
+        <!-- Export button here -->
+         <!-- Export Button -->
+    <input type="hidden" name="month" value="<?= $currentMonth ?>">
+    <input type="hidden" name="year" value="<?= $currentYear ?>">
+    <button type="submit">Export CSV</button>
+
+    </form>
+</div>
+
 
                 <div class="user-wrapper">
 
@@ -106,8 +561,8 @@ $user_role = $_SESSION['role_display'];  // User role from session
     </div>
 </div>
                 </div>
-        </header>
-        <style>
+</header>
+<style>
  /* Hide modal initially with smooth fade-in effect */
 #changePasswordModal {
     display: none;
@@ -254,168 +709,1015 @@ $user_role = $_SESSION['role_display'];  // User role from session
             </div>
         </div>
         
-        <main>
-            
-            <div class="recent-grid11">
-        <div class="projects">
-
-            <div class="card">
-                <div class="card-header">
-                    
-                <h3>New Invoice - <?php echo date('F j, Y'); ?></h3>
-                </div>
-
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table width="100%">
-                        <thead>
-                            <tr>
-                                <td>Invoice Number</td>
-                                <td>Customer</td>
-                                <td>Due Date</td>
-                                <td>Status</td>
-                            </tr>
-                        </thead>
-                        <tbody>
-    <?php
-    include('assets/databases/dbconfig.php');
-
-    $current_date = date('Y-m-d'); // Get current date in YYYY-MM-DD format
-    
-
-    $query = "SELECT i.id, c.name AS customer_name, i.due_date, i.payment_status 
-              FROM invoices i 
-              JOIN customers c ON i.customer_id = c.id 
-              WHERE DATE(i.issue_date) = '$current_date' 
-              ORDER BY i.issue_date";
-    $result = mysqli_query($connection, $query);
-
-  
-                            if (mysqli_num_rows($result) > 0) {
-                                while ($row = mysqli_fetch_assoc($result)) {
-                                    echo "<tr onclick=\"window.location.href='invoice.php?id=" . htmlspecialchars($row['id']). "'\" 
-                                             style='cursor:pointer;' 
-                                             onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
-                                             onmouseout=\"this.style.backgroundColor=''\">
-                                            <td>" . htmlspecialchars($row['id']) . "</td>
-                                            <td>" . htmlspecialchars($row['customer_name']) . "</td>
-                                            <td>" . htmlspecialchars($row['due_date']) . "</td>
-                                            <td><span class='status " . ($row['payment_status'] == 'paid' ? 'green' : 'orange') . "'></span>" . ucfirst($row['payment_status']) . "</td>
-                                          </tr>";
-                                }
-                            } else {
-                                echo "<tr><td colspan='4'>No new customers today.</td></tr>";
-                            }
-                            ?>
-</tbody>
-
-                    </table>
-                </div>
-            </div>
+        <div id="transactionHistoryPanel" class="transaction-panel">
+    <div class="panel-header">
+        <h3>Transaction History</h3>
+        <div>
+            <button onclick="downloadTransactionHistory()">📥 Download</button>
+            <button id="maximizeBtn" onclick="toggleMaximize()">🗖</button> 
+            <button onclick="closePanel()">✖</button>
         </div>
     </div>
-
-<br>
-
-    <div class="card">
-    <div class="card-header">
-        <h3>Generated Invoice</h3>
-        <select id="filterStatus">
-            <option value="all">Show All</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-            <option value="cancel">Canceled</option>
-            <option value="overdue">Overdue</option>
-        </select>
+    <div id="transactionContent">
+        <p>Select an invoice to view transaction history.</p>
     </div>
+</div>
 
-    <div class="card-body">
-        <div class="table-responsive">
-        <table width="100%" id="invoiceTable">
-    <thead>
-        <tr>
-            <td>Invoice Number</td>
-            <td>Customer</td>
-            <td>Due Date</td>
-            <td>Status</td>
-        </tr>
-    </thead>
-    <tbody>
-    <?php
-    // First, update overdue invoices
-    $current_date = date('Y-m-d');
-    $update_query = "
-    UPDATE invoices 
-    SET payment_status = 'overdue' 
-    WHERE due_date < NOW() AND payment_status != 'paid'";
-$update_stmt = mysqli_prepare($connection, $update_query);
-mysqli_stmt_execute($update_stmt);
+<style>
+.transaction-panel {
+    position: fixed;
+    top: 0;
+    right: -600px; /* Initially hidden */
+    width: 600px; /* Default width */
+    height: 100%;
+    background: white;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+    transition: right 0.3s ease-in-out, width 0.3s ease-in-out;
+    padding: 20px;
+    overflow-y: auto;
+    z-index: 10000;
+}
+.transaction-panel.open {
+    right: 0;
+}
+.transaction-panel table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.transaction-panel th, .paid-transaction-panel td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.transaction-panel-invoices th {
+    background-color: #0a1d4e;
+    color:#fff;
+    font-size: 13px;
+}
+
+/* Maximized Mode */
+.transaction-panel.maximized {
+    width: 100vw; /* Full-screen width */
+}
+
+/* Panel Header */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+/* Button Styling */
+.panel-header button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    margin-left: 8px;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.panel-header button:hover {
+    background-color: #f0f0f0;
+}
+</style>
 
 
-    // Now, fetch the updated invoices
-    $query = "
-        SELECT i.id, c.name AS customer_name, i.due_date, i.payment_status 
-        FROM invoices i 
-        JOIN customers c ON i.customer_id = c.id 
-        ORDER BY i.issue_date";
 
-    if (mysqli_multi_query($connection, $query)) {
-        do {
-            if ($result = mysqli_store_result($connection)) {
-                while ($row = mysqli_fetch_assoc($result)) {
-                    echo "<tr data-status='" . htmlspecialchars($row['payment_status']) . "' 
-                              onclick=\"window.location.href='invoice.php?id=" . htmlspecialchars($row['id']). "'\" 
-                              style='cursor:pointer;' 
-                              onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
-                              onmouseout=\"this.style.backgroundColor=''\">
-                            <td>" . htmlspecialchars($row['id']) . "</td>
-                            <td>" . htmlspecialchars($row['customer_name']) . "</td>
-                            <td>" . htmlspecialchars($row['due_date']) . "</td>
-                            <td><span class='status " . ($row['payment_status'] == 'paid' ? 'green' : 'orange') . "'></span>" . ucfirst($row['payment_status']) . "</td>
-                          </tr>";
-                }
-                mysqli_free_result($result);
-            }
-        } while (mysqli_next_result($connection));
-    } else {
-        echo "<tr><td colspan='4'>No invoices found.</td></tr>";
+        <style>
+.kpi-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 3 cards per row */
+    gap: 10px;
+}
+.kpi-card {
+    background: #0a1d4e;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+.kpi-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #fff;
+}
+.kpi-value {
+    font-size: 24px;
+    color: #fff;
+}
+/* Main container to hold both charts */
+.payment-tax-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    margin: auto;
+}
+
+/* Styles for both income-expenses and tax containers */
+.income-expenses-container,
+.tax-container {
+    width: 50%; /* Each takes half the width */
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Headings */
+.income-expenses-container h3,
+.tax-container h3 {
+    font-size: 1em;
+    font-weight: bold;
+    color: #0a1d4e;
+}
+
+/* Align chart and legend */
+.chart-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Adjust Payment Method Chart */
+#paymentMethodChart {
+    max-width: 220px; /* Keep chart smaller */
+    max-height: 220px;
+}
+
+/* Ensure full width for Tax Chart */
+#taxDeductionChart {
+    width: 100%; /* Fully expands */
+    height: auto;
+    max-height: 280px;
+}
+
+/* Payment Method Legend */
+.payment-method-legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 15px; /* Reduce margin to save space */
+}
+
+
+/* Payment Method Legend */
+.payment-method-legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 20px;
+}
+
+.payment-method-legend div {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.payment-method-legend span {
+    margin-left: 10px;
+    color: #333;
+}
+
+.payment-color-box {
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+}
+
+.top-customer-container {
+    display: flex;
+    gap: 10px; /* Space between chart and table */
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.top-customer, .paid-invoices {
+    width: 50%; /* Each takes almost half the width */
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.customer-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    width: 100%;
+    margin: auto;
+}
+
+.customer-wrapper h3, .paid-invoices h3 {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #0a1d4e;
+    text-align: left;
+
+}
+
+/* Chart Styling */
+#customerOverviewChart {
+    width: 100% !important;
+    max-width: 100%;
+    height: auto !important;
+    max-height: 300px;
+}
+
+/* Table Styling */
+.paid-invoices table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.paid-invoices th, .paid-invoices td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.paid-invoices th {
+    background-color: #0a1d4e;
+    color:#fff;
+    font-size: 13px;
+}
+
+.invoice-container {
+    width: 100%;
+    margin: 10px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.all-invoices table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.all-invoices th, .all-invoices td {
+    padding: 5px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+.all-invoices th {
+    background-color: #0a1d4e;
+    color: white;
+}
+
+.invoice-row:hover {
+    background-color: #f1b0b7 !important;
+    cursor: pointer;
+}
+
+/* Pagination */
+.pagination {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.pagination-btn {
+    display: inline-block;
+    padding: 8px 15px;
+    margin: 0 5px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+}
+
+.pagination-btn:hover {
+    background-color: #0056b3;
+}
+
+.page-number {
+    font-weight: bold;
+}
+
+
+</style>
+
+
+        <main>
+
+
+
+        <style>
+    /* Container for both forms */
+    .form-container {
+        display: flex;
+        justify-content: flex-end; /* Align forms to the right */
+        align-items: center;
+        gap: 10px;
     }
-    ?>
-    </tbody>
-</table>
 
+    /* Styling for filter form */
+    #filter-form label {
+        font-weight: bold;
+    }
+
+    #filter-form select, #filter-form button, 
+    #export-form button {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+
+    #filter-form select {
+        background-color: #f9f9f9;
+        cursor: pointer;
+    }
+
+    #filter-form button, #export-form button {
+        background-color: #0a1d4e;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+    #filter-form button:hover, #export-form button:hover {
+        background-color: #0056b3;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+        .form-container {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        #filter-form select, #filter-form button,
+        #export-form button {
+            width: 100%;
+        }
+    }
+</style>
+
+
+        <div class="kpi-metrics">
+        <div class="kpi-card">
+            <div class="kpi-title">Total Income (Current Month)</div>
+            <div class="kpi-value"><?php echo '₱' . number_format($totalIncome, 2); ?></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Total Expenses (Current Month)</div>
+            <div class="kpi-value"><?php echo '₱' . number_format($totalExpenses, 2); ?></div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-title">Net Income (Current Month)</div>
+            <div class="kpi-value"><?php echo '₱' . number_format($netIncome, 2); ?></div>
+        </div>
+
+    
+    <div class="kpi-card">
+        <div class="kpi-title">Total Customers</div>
+        <div class="kpi-value">
+            <?php 
+            // Fetch the total number of customers
+            $customerQuery = "SELECT COUNT(DISTINCT id) AS total_customers FROM customers";
+            $customerResult = $connection->query($customerQuery);
+            $customerData = $customerResult->fetch_assoc();
+            $totalCustomers = $customerData['total_customers'];
+            echo number_format($totalCustomers);
+            ?>
         </div>
     </div>
 </div>
 
-<script>
-    document.getElementById('filterStatus').addEventListener('change', function() {
-        let selectedStatus = this.value;
-        let rows = document.querySelectorAll('#invoiceTable tbody tr');
+<br>
+<div class="dashboard-container">
 
-        rows.forEach(row => {
-            let rowStatus = row.getAttribute('data-status');
-            if (selectedStatus === 'all' || rowStatus === selectedStatus) {
-                row.style.display = '';
+<div class="chart-container">
+                <h3 style="color: #0a1d4e;">Cash Flow</h3>
+                        <canvas id="cashFlowChart" height="100"></canvas>
+                        <table border="1" width="100%">
+    <thead style="background-color: #0a1d4e; color: #fff;">
+        <tr>
+            <th>Category</th>
+            <?php 
+            $visibleData = array_filter($cash_flow_data, fn($row) => empty($row['is_forecast'])); // Exclude forecast
+            $months = array_column($visibleData, 'month');
+            foreach (array_slice($months, 0, 6) as $month) : ?>
+                <th><?php echo $month; ?></th>
+            <?php endforeach; ?>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Income Row -->
+        <tr>
+            <td>Income</td>
+            <?php foreach (array_slice($visibleData, 0, 6) as $row) : ?>
+                <td><?php echo number_format($row['current_income'], 2); ?></td>
+            <?php endforeach; ?>
+        </tr>
+
+        <!-- Expenses Row -->
+        <tr>
+            <td>Expenses</td>
+            <?php foreach (array_slice($visibleData, 0, 6) as $row) : ?>
+                <td><?php echo number_format($row['current_expenses'], 2); ?></td>
+            <?php endforeach; ?>
+        </tr>
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div id="pagination" style="text-align: center; margin-top: 10px;">
+    <button onclick="changePage(-1)" id="prevBtn" style="background: none; border: none; font-size: 18px; cursor: pointer;">⬅</button>
+    <span id="pageNumber" style="font-weight: bold; margin: 0 10px;">1</span>
+    <button onclick="changePage(1)" id="nextBtn" style="background: none; border: none; font-size: 18px; cursor: pointer;">➡</button>
+</div>
+
+                    </div>
+            <div class="meter-container" style="width: 30%;">
+    <!-- Budget Meter -->
+    <div class="budget-meter">
+    <h3>Monthly Budget</h3>
+    <p>Total Budget: <?= number_format($totalBudget, 2); ?></p> <!-- Always the same -->
+    
+    <div class="meter">
+        <div class="fill" style="width: <?= $budgetUsage; ?>%">
+            <span><?= number_format($approvedBudget, 2); ?></span> <!-- Display usage -->
+        </div>
+    </div>
+
+    <p>Used: <?= number_format($budgetUsage, 2); ?>% | Remaining: <?= number_format($remainingBudget, 2); ?>%</p>
+    <button class="update-budget-btn" onclick="openUpdateBudgetModal()">Update Budget</button>
+    <button class="budget-report-btn" onclick="redirectToBudgetReport()">Expense Budget</button>
+</div>
+
+<!-- Monthly Income Goal Meter -->
+<div class="income-goal-meter">
+    <h3>Monthly Income Goal</h3>
+    <p>Target Income: <?= number_format($incomeGoal, 2); ?></p>
+    <div class="meter">
+        <div class="fill" style="width: <?= $incomeProgress; ?>%">
+            <span><?= number_format($totalIncome, 2); ?></span> <!-- Display income amount inside the bar -->
+        </div>
+    </div>
+    <p>Achieved: <?= number_format($incomeProgress, 2); ?>% | Remaining: <?= number_format(max(0, 100 - $incomeProgress), 2); ?>%</p>
+    <button class="update-income-goal-btn" onclick="openUpdateIncomeGoalModal()">Update Goal</button>
+    <button class="income-report-btn">Income Report</button>
+    </div>
+</div>  
+</div>
+
+<div class="payment-tax-container">
+    <div class="income-expenses-container">
+        <h3>Income Breakdown by Payment Method</h3>
+        <div class="chart-wrapper">
+            <canvas id="paymentMethodChart"></canvas>
+            <div id="paymentMethodLegend" class="payment-method-legend"></div>
+        </div>
+    </div>
+
+    <div class="tax-container">
+        <h3>Tax Report</h3>
+        <canvas id="taxDeductionChart" widht="100%;"></canvas>
+    </div>
+</div>
+
+<div class="top-customer-container">
+    <!-- Customer Overview Chart -->
+    <div class="top-customer">
+        <div class="customer-wrapper">
+            <h3>Customer Overview</h3>
+            <canvas id="customerOverviewChart"></canvas>
+        </div>
+    </div>
+
+    <div class="paid-invoices">
+    <h3>Paid Invoices (Current Month)</h3>
+    <table id="paidInvoicesTable">
+        <thead>
+            <tr>
+                <th>Invoice ID</th>
+                <th>Customer Name</th>
+                <th>Total Amount</th>
+                <th>Paid Date</th>
+            </tr>
+        </thead>
+        <tbody id="invoiceTableBody">
+            <?php
+
+            $currentMonth = date('m');
+            $currentYear = date('Y');
+
+            $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
+                           i.total_amount, i.payment_date 
+                    FROM invoices i
+                    INNER JOIN customers c ON i.customer_id = c.id
+                    WHERE i.payment_status = 'paid' 
+                    AND MONTH(i.payment_date) = ? 
+                    AND YEAR(i.payment_date) = ?";
+
+            $stmt = $connection->prepare($sql);
+            $stmt->bind_param("ii", $currentMonth, $currentYear);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $invoices = [];
+
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) {
+                    $invoices[] = $row;
+                    echo "<tr class='invoice-row' 
+                data-customer-id='{$row['customer_id']}' 
+                data-invoice-id='{$row['invoice_id']}'
+                onclick='fetchTransactionHistory({$row['customer_id']})' 
+                style='cursor:pointer;' 
+                onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
+                onmouseout=\"this.style.backgroundColor='';\">
+                <td>{$row['invoice_id']}</td>
+                <td>{$row['customer_name']}</td>
+                <td>₱" . number_format($row['total_amount'], 2) . "</td>
+                <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
+            </tr>";
+                }
             } else {
-                row.style.display = 'none';
+                echo "<tr><td colspan='4' style='text-align: center;'>No paid invoices</td></tr>";
             }
-        });
-    });
+            ?>
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div id="pagination" style="text-align: center; margin-top: 10px;">
+        <button onclick="changePage(-1)" id="prevBtn" style="background: none; border: none; font-size: 18px; cursor: pointer;">⬅</button>
+        <span id="pageNumber" style="font-weight: bold; margin: 0 10px;">1</span>
+        <button onclick="changePage(1)" id="nextBtn" style="background: none; border: none; font-size: 18px; cursor: pointer;">➡</button>
+    </div>
+</div>
+        </div>
+        <div class="invoice-container">
+    <h3>All Invoices</h3>
+    <div class="all-invoices">
+        <table id="allInvoicesTable">
+            <thead>
+                <tr>
+                    <th>Invoice ID</th>
+                    <th>Customer Name</th>
+                    <th>Total Amount</th>
+                    <th>Payment Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="invoiceTableBody">
+                <?php
+                $limit = 5; // Invoices per page
+                $page = isset($_GET['page']) ? $_GET['page'] : 1;
+                $offset = ($page - 1) * $limit;
+
+                // Count total invoices for pagination
+                $countSql = "SELECT COUNT(*) AS total FROM invoices";
+                $countResult = $connection->query($countSql);
+                $totalInvoices = $countResult->fetch_assoc()['total'];
+                $totalPages = ceil($totalInvoices / $limit);
+
+                // Fetch invoices with LIMIT for pagination
+                $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
+                               i.total_amount, i.payment_date, i.payment_status 
+                        FROM invoices i
+                        INNER JOIN customers c ON i.customer_id = c.id
+                        ORDER BY i.payment_date DESC
+                        LIMIT ?, ?";
+                
+                $stmt = $connection->prepare($sql);
+                $stmt->bind_param("ii", $offset, $limit);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                if ($result->num_rows > 0) {
+                    while ($row = $result->fetch_assoc()) {
+                        echo "<tr class='invoice-row' 
+                                data-customer-id='{$row['customer_id']}' 
+                                data-invoice-id='{$row['invoice_id']}'
+                                onclick='fetchTransactionHistory({$row['customer_id']})' 
+                                style='cursor:pointer;' 
+                                onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
+                                onmouseout=\"this.style.backgroundColor='';\">
+                                <td>{$row['invoice_id']}</td>
+                                <td>{$row['customer_name']}</td>
+                                <td>₱" . number_format($row['total_amount'], 2) . "</td>
+                                <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
+                                <td>{$row['payment_status']}</td>
+                            </tr>";
+                    }
+                } else {
+                    echo "<tr><td colspan='5' style='text-align: center;'>No invoices found</td></tr>";
+                }
+                ?>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        <?php if ($page > 1): ?>
+            <a href="?page=<?= $page - 1 ?>" class="pagination-btn">⬅ Prev</a>
+        <?php endif; ?>
+
+        <span class="page-number">Page <?= $page ?> of <?= $totalPages ?></span>
+
+        <?php if ($page < $totalPages): ?>
+            <a href="?page=<?= $page + 1 ?>" class="pagination-btn">Next ➡</a>
+        <?php endif; ?>
+    </div>
+</div>
+
+
+
+
+              
+<style>
+    #updateIncomeGoalModal, #updateBudgetModal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    #updateIncomeGoalModal .modal-content, #updateBudgetModal .modal-content{
+        background-color: #fff;
+        margin: 15% auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 50%;
+        text-align: center;
+    }
+    #updateIncomeGoalModal .close, #updateBudgetModal .close {
+        float: right;
+        font-size: 24px;
+        cursor: pointer;
+    }
+    #updateIncomeGoalModal form, #updateBudgetModal form {
+    max-width: auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+#updateIncomeGoalModal input, #updateBudgetModal input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+}
+#updateIncomeGoalModal button, #updateBudgetModal button {
+    background-color: #ed6978;
+    color: white;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #d1697b;
+}
+</style>
+
+<!-- Update Income Goal Modal -->
+<div id="updateIncomeGoalModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeUpdateIncomeGoalModal()">&times;</span>
+
+        <form method="post">
+            <label for="income_goal_amount">Set New Income Goal:</label>
+            <input type="number" step="0.01" name="income_goal_amount" id="income_goal_amount" value="<?= number_format($incomeGoal, 2) ?>" required>
+            <button type="submit">Update Goal</button>
+        </form>
+    </div>
+</div>
+
+<!-- JavaScript for Income Goal Modal -->
+<script>
+    function openUpdateIncomeGoalModal() {
+        document.getElementById("updateIncomeGoalModal").style.display = "block";
+    }
+
+    function closeUpdateIncomeGoalModal() {
+        document.getElementById("updateIncomeGoalModal").style.display = "none";
+    }
+</script>
+
+
+<!-- Update Budget Modal -->
+<div id="updateBudgetModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeUpdateBudgetModal()">&times;</span>
+        
+
+<form method="post">
+    <label for="budget_amount">Set New Budget:</label>
+    <input type="number" step="0.01" name="budget_amount" id="budget_amount" value="<?= number_format($currentBudget, 2) ?>" required>
+    <button type="submit">Update Budget</button>
+</form>
+    </div>
+</div>
+
+<!-- JavaScript for Modal -->
+<script>
+    function openUpdateBudgetModal() {
+        document.getElementById("updateBudgetModal").style.display = "block";
+    }
+
+    function closeUpdateBudgetModal() {
+        document.getElementById("updateBudgetModal").style.display = "none";
+    }
+</script>
+
+    </main>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.0.7/countUp.umd.js"></script>
+
+<script>
+function redirectToBudgetReport() {
+    let currentMonth = new Date().getMonth() + 1; // JS months are 0-based
+    let currentYear = new Date().getFullYear();
+    window.location.href = `budget_report.php?month=${currentMonth}&year=${currentYear}`;
+}
+</script>
+<script>
+  const paymentLabels = <?php echo json_encode(array_keys($paymentMethods)); ?>;
+  const paymentData = <?php echo json_encode(array_values($paymentMethods)); ?>;
+  const ctxPayment = document.getElementById('paymentMethodChart').getContext('2d');
+
+  // Calculate total income safely
+  const totalIncome = paymentData.reduce((acc, val) => acc + parseFloat(val || 0), 0);
+
+  // Create Doughnut Chart with Percentage Inside
+  const paymentMethodChart = new Chart(ctxPayment, {
+      type: 'doughnut',
+      data: {
+          labels: paymentLabels,
+          datasets: [{
+              label: 'Total Income (₱)',
+              data: paymentData,
+              backgroundColor: ['#1E88E5', '#43A047', '#FB8C00', '#6D4C41', '#8E24AA', '#D81B60'],
+              borderColor: '#ffffff',
+              borderWidth: 2
+          }]
+      },
+      options: {
+          responsive: true,
+          cutout: '30%', // Creates a thinner ring
+          plugins: {
+              legend: {
+                  display: false // Hide default legend (we'll create a custom one)
+              },
+              tooltip: {
+                  callbacks: {
+                      label: function(tooltipItem) {
+                          const value = tooltipItem.raw;
+                          const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : "0";
+                          return `₱${parseFloat(value).toLocaleString()} (${percentage}%)`;
+                      }
+                  }
+              },
+              datalabels: {
+                  color: '#fff',
+                  font: {
+                      weight: 'bold',
+                      size: 14
+                  },
+                  formatter: function(value) {
+                      const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : "0";
+                      return percentage + '%'; // Show percentage inside chart
+                  }
+              }
+          }
+      },
+      plugins: [ChartDataLabels] // Activate DataLabels Plugin
+  });
+
+  // **💡 Styled Custom Legend**
+  const legendContainer = document.getElementById('paymentMethodLegend');
+  legendContainer.innerHTML = paymentLabels.map((label, index) => {
+      const value = paymentData[index];
+      const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : "0";
+      return `
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div class="payment-color-box" style="width: 14px; height: 14px; background-color: ${paymentMethodChart.data.datasets[0].backgroundColor[index]}; margin-right: 10px; border-radius: 50%;"></div>
+              <span>${label}: <strong>₱${parseFloat(value).toLocaleString()} (${percentage}%)</strong></span>
+          </div>
+      `;
+  }).join('');
+</script>
+
+<script>
+   // Prepare the data for Chart.js
+var months = <?php echo $months_json; ?>;
+var incomeData = <?php echo $income_json; ?>;
+var taxData = <?php echo $tax_json; ?>;
+
+// Create the chart
+var ctx = document.getElementById('taxDeductionChart').getContext('2d');
+var taxDeductionChart = new Chart(ctx, {
+    type: 'bar', // Change to 'line' if you prefer
+    data: {
+        labels: months.map(function(month) {
+            const date = new Date(0);
+            date.setMonth(month - 1);
+            return date.toLocaleString('default', { month: 'short' });
+        }),
+        datasets: [
+            {
+                label: 'Monthly Income (₱)',
+                data: incomeData,
+                backgroundColor: '#30c0dd',
+                borderColor: '#30c0dd',
+                borderWidth: 1
+            },
+            {
+                label: 'Tax Deduction (₱)',
+                data: taxData,
+                backgroundColor: '#FF6384',
+                borderColor: '#FF6384',
+                borderWidth: 1
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                        return '₱ ' + tooltipItem.raw.toFixed(2); // Format tooltips
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return '₱ ' + value.toFixed(2);
+                    }
+                }
+            }
+        }
+    }
+});
+
 </script>
 
 
 
 
-        </main>
-    </div>
+<script>
+// Parse the PHP data into JavaScript
+var incomeExpensesData = <?php echo json_encode($cash_flow_data); ?> || [];
 
+if (!Array.isArray(incomeExpensesData)) {
+    incomeExpensesData = [];
+}
 
+console.log(incomeExpensesData); // Debugging
 
+const monthLabels = incomeExpensesData.map(data => data.month || "No Date");
 
+// Actual Cash Flow Data (Null where forecast starts)
+const cashFlowValues = incomeExpensesData.map(data => 
+    data.is_forecast ? null : (data.current_income || 0) - (data.current_expenses || 0)
+);
+const lastYearCashFlowValues = incomeExpensesData.map(data => (data.last_year_income || 0) - (data.last_year_expenses || 0));
 
+// Forecasted Cash Flow (Extends from last actual data)
+let forecastCashFlowValues = [];
+let lastActualCashFlow = null;
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+incomeExpensesData.forEach((data, index) => {
+    if (data.is_forecast) {
+        let forecastValue = (data.current_income || 0) - (data.current_expenses || 0);
+        forecastCashFlowValues.push(forecastValue);
+    } else {
+        lastActualCashFlow = (data.current_income || 0) - (data.current_expenses || 0);
+        forecastCashFlowValues.push(lastActualCashFlow);
+    }
+});
+
+console.log(forecastCashFlowValues); // Debugging
+
+// **🟢 Updated Cash Flow Chart with Forecast Shade**
+const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
+    type: 'line',
+    data: {
+        labels: monthLabels,
+        datasets: [
+            {
+                label: 'Current Year Cash Flow',
+                data: cashFlowValues,
+                fill: true,
+                backgroundColor: 'rgba(10, 29, 78, 0.2)',
+                borderColor: '#0a1d4e',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#30c0dd',
+                tension: 0.4
+            },
+            {
+                label: 'Last Year Cash Flow',
+                data: lastYearCashFlowValues,
+                fill: true,
+                backgroundColor: 'rgba(99, 247, 255, 0.2)',
+                borderColor: '#rgb(99, 247, 255)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: 'rgb(99, 247, 255)',
+                tension: 0.4
+            },
+            {
+                label: 'Forecasted Cash Flow',
+                data: forecastCashFlowValues,
+                fill: true, // Enables shading
+                backgroundColor: 'rgba(0, 255, 0, 0.2)', // Light green shade
+                borderColor: 'rgba(0, 255, 0, 1)',
+                borderDash: [5, 5], // Dashed line
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#00ff00',
+                tension: 0.4
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'top' }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+
+</script>
+
+<script>
+document.querySelector(".income-report-btn").addEventListener("click", function() {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-based
+    const currentYear = currentDate.getFullYear();
+
+    window.location.href = `income_report.php?month=${currentMonth}&year=${currentYear}`;
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const openModalBtn = document.getElementById("openChangePasswordModal");
+    const closeModalBtn = document.getElementById("closeModal");
+    const modal = document.getElementById("changePasswordModal");
+
+    if (openModalBtn && closeModalBtn && modal) {
+        openModalBtn.addEventListener("click", function(event) {
+            event.preventDefault(); // Prevent default anchor action
+            modal.classList.add("show"); // Add 'show' class to display modal
+        });
+
+        closeModalBtn.addEventListener("click", function() {
+            modal.classList.remove("show"); // Remove 'show' class to hide modal
+        });
+
+        // Close modal when clicking outside the modal dialog
+        window.addEventListener("click", function(event) {
+            if (event.target === modal) {
+                modal.classList.remove("show");
+            }
+        });
+    } else {
+        console.error("Modal or trigger elements not found.");
+    }
+});
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const bellIcon = document.getElementById("notification-bell");
@@ -577,37 +1879,191 @@ document.addEventListener("DOMContentLoaded", function() {
 
     fetchNotifications();
 });
-
 </script>
+
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const openModalBtn = document.getElementById("openChangePasswordModal");
-    const closeModalBtn = document.getElementById("closeModal");
-    const modal = document.getElementById("changePasswordModal");
+    let currentPage = 0;
+    const columnsPerPage = 6;
+    const cashFlowData = <?php echo json_encode($visibleData); ?>;
+    const totalPages = Math.ceil(cashFlowData.length / columnsPerPage);
 
-    if (openModalBtn && closeModalBtn && modal) {
-        openModalBtn.addEventListener("click", function(event) {
-            event.preventDefault(); // Prevent default anchor action
-            modal.classList.add("show"); // Add 'show' class to display modal
+    function renderTable() {
+        const tableHead = document.querySelector("thead tr");
+        const incomeRow = document.querySelector("tbody tr:nth-child(1)");
+        const expensesRow = document.querySelector("tbody tr:nth-child(2)");
+
+        tableHead.innerHTML = "<th>Category</th>";
+        incomeRow.innerHTML = "<td>Income</td>";
+        expensesRow.innerHTML = "<td>Expenses</td>";
+
+        const start = currentPage * columnsPerPage;
+        const end = start + columnsPerPage;
+        const paginatedData = cashFlowData.slice(start, end);
+
+        paginatedData.forEach(row => {
+            tableHead.innerHTML += `<th>${row.month}</th>`;
+            incomeRow.innerHTML += `<td>${parseFloat(row.current_income).toFixed(2)}</td>`;
+            expensesRow.innerHTML += `<td>${parseFloat(row.current_expenses).toFixed(2)}</td>`;
         });
 
-        closeModalBtn.addEventListener("click", function() {
-            modal.classList.remove("show"); // Remove 'show' class to hide modal
-        });
-
-        // Close modal when clicking outside the modal dialog
-        window.addEventListener("click", function(event) {
-            if (event.target === modal) {
-                modal.classList.remove("show");
-            }
-        });
-    } else {
-        console.error("Modal or trigger elements not found.");
+        document.getElementById("pageNumber").innerText = `${currentPage + 1} / ${totalPages}`;
+        document.getElementById("prevBtn").disabled = currentPage === 0;
+        document.getElementById("nextBtn").disabled = currentPage === totalPages - 1;
     }
-});
+
+    function changePage(direction) {
+        currentPage = Math.max(0, Math.min(currentPage + direction, totalPages - 1));
+        renderTable();
+    }
+
+    renderTable();
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var ctx = document.getElementById('customerOverviewChart').getContext('2d');
 
+    var customerOverviewChart = new Chart(ctx, {
+        type: 'bar', // Keep 'bar' type
+        data: {
+            labels: <?php echo $customerNames; ?>, // Customer names as labels
+            datasets: [{
+                label: 'Total Spending (₱)',
+                data: <?php echo $totalSpending; ?>, // Customer spending
+                backgroundColor: '#4767B1',
+                borderColor: '#388E3C',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y', // **Makes it horizontal**
+            scales: {
+                x: { // Controls the X-axis (spending amounts)
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function (value) {
+                            return '₱' + value.toLocaleString(); // Format as currency
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false // Hides legend
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (tooltipItem) {
+                            return '₱' + tooltipItem.raw.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
 
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const invoices = <?php echo $jsonInvoices; ?>;
+        const rowsPerPage = 5;
+        let currentPage = 1;
+
+        function renderTable(page) {
+            const tableBody = document.getElementById("invoiceTableBody");
+            tableBody.innerHTML = "";
+
+            const start = (page - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedItems = invoices.slice(start, end);
+
+            paginatedItems.forEach(row => {
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>${row.invoice_id}</td>
+                        <td>${row.customer_name}</td>
+                        <td>₱${parseFloat(row.total_amount).toLocaleString()}</td>
+                        <td>${row.paid_date}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById("pageNumber").innerText = page;
+            document.getElementById("prevBtn").disabled = (page === 1);
+            document.getElementById("nextBtn").disabled = (end >= invoices.length);
+        }
+
+        window.changePage = function (direction) {
+            const newPage = currentPage + direction;
+            if (newPage > 0 && newPage <= Math.ceil(invoices.length / rowsPerPage)) {
+                currentPage = newPage;
+                renderTable(currentPage);
+            }
+        };
+
+        renderTable(currentPage);
+    });
+</script>
+
+<script>
+    function fetchTransactionHistory(customerId) {
+        console.log("Fetching transaction history for customer ID:", customerId); // Debug log
+
+        fetch('get_customer_transactions.php?customer_id=' + customerId)
+            .then(response => response.text())
+            .then(data => {
+                console.log("Response received:", data); // Debug response
+                document.getElementById("transactionContent").innerHTML = data;
+                document.getElementById("transactionHistoryPanel").classList.add("open");
+            })
+            .catch(error => console.error("Error fetching transaction history:", error));
+    }
+
+    function toggleMaximize() {
+        let panel = document.getElementById("transactionHistoryPanel");
+        let maximizeBtn = document.getElementById("maximizeBtn");
+
+        panel.classList.toggle("maximized");
+
+        if (panel.classList.contains("maximized")) {
+            maximizeBtn.innerHTML = "🗕"; 
+        } else {
+            maximizeBtn.innerHTML = "🗖"; 
+        }
+    }
+
+    function closePanel() {
+        document.getElementById("transactionHistoryPanel").classList.remove("open", "maximized");
+        document.getElementById("maximizeBtn").innerHTML = "🗖"; 
+    }
+
+    function downloadTransactionHistory() {
+        let table = document.querySelector("#transactionContent table");
+        if (!table) {
+            alert("No transaction history to download.");
+            return;
+        }
+
+        let rows = Array.from(table.querySelectorAll("tr"));
+        let csvContent = rows.map(row => {
+            let columns = Array.from(row.querySelectorAll("td, th")).map(cell => `"${cell.innerText}"`);
+            return columns.join(",");
+        }).join("\n");
+
+        let blob = new Blob([csvContent], { type: "text/csv" });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "transaction_history.csv";
+        link.click();
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("Checking if transactionHistoryPanel is in the DOM:", document.getElementById("transactionHistoryPanel"));
+    });
+
+</script>
 </body>
 </html>

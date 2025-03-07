@@ -29,10 +29,16 @@ $request_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($request_id === 0) {
     die("Invalid request ID.");
 }
+$request_query = $connection->query("
+    SELECT r.*, e.name AS staff_name, e.position 
+    FROM requests r 
+    LEFT JOIN employees e ON r.staff_id = e.id 
+    WHERE r.id = $request_id
+");
+$request_data = $request_query->fetch_assoc();
 
 // Fetch request data from the requests table
 $request_query = $connection->query("SELECT * FROM requests WHERE id = $request_id");
-$request_data = $request_query->fetch_assoc();
 
 // Fetch attachments related to the request
 $attachments_query = $connection->query("SELECT * FROM attachments WHERE request_id = $request_id");
@@ -82,10 +88,9 @@ $transaction_query->close();
             <a href="#"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
-                <li><a href="staff_analytics.php"><span class="las la-chart-line"></span> Analytics</a></li>
                 <li><a href="#"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="#"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="#"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>
             <li>
@@ -155,40 +160,42 @@ $transaction_query->close();
 
     <div class="form-group">
             <label for="request_type">Request Type:</label>
-            <select id="request_type" name="request_type" required>
-            <option value="budget" <?php if ($request_data['request_type'] == 'budget') echo 'selected'; ?>>Budget</option>
-            <option value="expense" <?php if ($request_data['request_type'] == 'expense') echo 'selected'; ?>>Expense</option>
+            <select id="request_type" name="request_type">
+            <option value="budget_requests" <?php if ($request_data['request_type'] == 'budget_requests') echo 'selected'; ?>>Budget Requests</option>
+            <option value="expense_reimbursement" <?php if ($request_data['request_type'] == 'expense_reimbursement') echo 'selected'; ?>>Expense Reimbursement</option>
+            <option value="capital_expenditures" <?php if ($request_data['request_type'] == 'capital_expenditures') echo 'selected'; ?>>Capital Expenditures</option>
+            <option value="other" <?php if ($request_data['request_type'] == 'other') echo 'selected'; ?>>Other</option>
             </select>
         </div>
 
         <div class="form-group">
         <label for="department">Department:</label>
-            <input type="text" id="department" name="department" value="<?php echo htmlspecialchars($request_data['department']); ?>" required>
+            <input type="text" id="department" name="department" value="<?php echo htmlspecialchars($request_data['department']); ?>">
         </div>
 
         <div class="form-group">
         <label for="staff_name">Requestor:</label>
-        <input type="text" id="staff_name" name="staff_name" value="<?php echo htmlspecialchars($request_data['staff_name']); ?>" required>
+        <input type="text" id="staff_name" name="staff_name" value="<?php echo htmlspecialchars($request_data['staff_name']); ?>">
         </div>
 
         <div class="form-group">
             <label for="staff_id">Staff ID:</label>
-            <input type="text" id="staff_id" name="staff_id" value="<?php echo htmlspecialchars($request_data['staff_id']); ?>" required>
+            <input type="text" id="staff_id" name="staff_id" value="<?php echo htmlspecialchars($request_data['staff_id']); ?>">
         </div>
 
         <div class="form-group">
             <label for="position">Position:</label>
-            <input type="text" id="position" name="position" value="<?php echo htmlspecialchars($request_data['position']); ?>" required>
+            <input type="text" id="position" name="position" value="<?php echo htmlspecialchars($request_data['position']); ?>">
         </div>
 
         <div class="form-group">
         <label for="amount">Requested Amount:</label>
-        <input type="number" id="amount" name="amount" value="<?php echo htmlspecialchars($request_data['amount']); ?>" required>
+        <input type="number" id="amount" name="amount" value="<?php echo htmlspecialchars($request_data['amount']); ?>">
         </div>
 
         <div class="form-group full-width">
         <label for="description">Description:</label>
-        <textarea id="description" name="description" rows="4" required><?php echo htmlspecialchars($request_data['description']); ?></textarea>
+        <textarea id="description" name="description" rows="4"><?php echo htmlspecialchars($request_data['description']); ?></textarea>
         </div>
 
 

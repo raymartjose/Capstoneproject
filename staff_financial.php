@@ -11,18 +11,57 @@
 <body>
 
 <?php
-include "fetch_count.php";
-include "fetch_request.php";
 session_start();  // Start the session
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");  // Redirect to login if not logged in
     exit();
 }
 
+include ('assets/databases/dbconfig.php');
+
+
 $user_name = $_SESSION['name'];  // User name from session
 $user_role = $_SESSION['role_display'];  // User role from session
 
-$requests = $connection->query("SELECT * FROM requests WHERE status IN ('Returned')");
+$limit = 10; // Number of records per page
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1; // Get the current page number, default to 1
+$offset = ($page - 1) * $limit; // Calculate the offset
+
+$requests = $connection->query("SELECT * FROM requests WHERE status IN ('Returned','Approved','Rejected','Cancelled') LIMIT $limit OFFSET $offset");
+
+$totalRequestsQuery = "SELECT COUNT(*) AS total FROM requests WHERE status IN ('Returned','Approved','Rejected','Cancelled')";
+    $totalResult = $connection->query($totalRequestsQuery);
+    $totalRow = $totalResult->fetch_assoc();
+    $totalRequests = $totalRow['total'];
+    $totalPages = ceil($totalRequests / $limit); // Total pages
+
+
+$returnedCount = 0;
+$approvedCount = 0;
+$rejectedCount = 0;
+$cancelledCount = 0;
+
+$statusQuery = "SELECT status, COUNT(*) as count FROM requests GROUP BY status";
+$statusResult = $connection->query($statusQuery);
+
+if ($statusResult->num_rows > 0) {
+    while ($row = $statusResult->fetch_assoc()) {
+        switch ($row['status']) {
+            case 'Returned':
+                $returnedCount = $row['count'];
+                break;
+            case 'Approved':
+                $approvedCount = $row['count'];
+                break;
+            case 'Rejected':
+                $rejectedCount = $row['count'];
+                break;
+            case 'Cancelled':
+                $cancelledCount = $row['count'];
+                break;
+        }
+    }
+}
 ?>
 
 <input type="checkbox" id="nav-toggle">
@@ -45,10 +84,9 @@ $requests = $connection->query("SELECT * FROM requests WHERE status IN ('Returne
             <a href="#"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
-                <li><a href="staff_analytics.php"><span class="las la-chart-line"></span> Analytics</a></li>
                 <li><a href="#"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="#"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="#"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>
             <li>
@@ -252,116 +290,206 @@ $requests = $connection->query("SELECT * FROM requests WHERE status IN ('Returne
                 </div>
             </div>
         </div>
+
+        <style>
+.kpi-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 3 cards per row */
+    gap: 10px;
+    margin-bottom: 5px;
+}
+.metric {
+    cursor: pointer;
+    background: #0a1d4e;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.metric:hover {
+        background-color: #0056b3;
+    }
+.head {
+        display: flex;
+        justify-content: space-between; /* Align heading left and button right */
+        align-items: center; /* Vertically center the content */
+        margin-bottom: 10px;
+    }
+
+    /* Styling for the heading */
+    .head h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    /* Styling for the button */
+    .head button {
+        background-color: #0a1d4e;
+        color: white;
+        border: none;
+        cursor: pointer;
+        padding: 10px;
+        font-size: 12px;
+        font-weight: bold;
+        border-radius: 5px; /* Rounded corners */
+        transition: background 0.3s ease, box-shadow 0.3s ease;
+        display: inline-flex;
+        align-items: center; /* Vertically center the content */
+        gap: 8px;
+    }
+
+    .head button:hover {
+        background-color: #0056b3;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    }
+
+    /* Font awesome plus icon */
+    .head button .las {
+        font-size: 18px;
+    }
+
+    /* Table styling */
+    .request {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .request th, .request td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+
+    .request th {
+        background-color: #0a1d4e;
+        color: white;
+        font-size: 13px;
+    }
+
+    .request td {
+        font-size: 14px;
+    }
+
+    .request tbody tr:hover {
+        background-color: #d1697b; /* Hover effect for rows */
+        cursor: pointer;
+    }
+
+    .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.pagination a {
+    margin: 0 10px;
+    padding: 5px 10px;
+    background-color: #0a1d4e;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+}
+
+.pagination a:hover {
+    background-color: #0056b3;
+}
+
+.pagination span {
+    padding: 5px 10px;
+}
+
+            </style>
         
         <main>
-        <div class="cards" style="cursor: pointer">
-    <div class="card-single">
-        <div>
-            <h3>test</h3>
-            <h4>
-         
-            </h4>
-            <span></span>
-        </div>
-        <div>
-            <span class="las la-credit-card"></span>
-        </div>
+       
+
+        <div class="kpi-metrics">
+    <div class="metric" onclick="filterRequests('Returned')">
+        <h4>Returned</h4>
+        <p><?= $returnedCount ?></p>
     </div>
-
-    <div class="card-single">
-        <div>
-            <h3>test</h3>
-            <h4>
-
-            </h4>
-            <span></span>
-        </div>
-        <div>
-            <span class="las la-money-bill-wave"></span>
-        </div>
+    <div class="metric" onclick="filterRequests('Approved')">
+        <h4>Approved</h4>
+        <p><?= $approvedCount ?></p>
     </div>
-
-
-    <div class="card-single" onclick="loadRequestData('approved')">
-        <div>
-            <h3>test</h3>
-            <h4>
-                
-            </h4>
-            <span></span>
-        </div>
-        <div>
-            <span class="las la-clipboard-check"></span>
-        </div>
+    <div class="metric" onclick="filterRequests('Rejected')">
+        <h4>Rejected</h4>
+        <p><?= $rejectedCount ?></p>
     </div>
-
-    <div class="card-single" onclick="loadRequestData('rejected')">
-        <div>
-            <h3>test</h3>
-            <h4>
-            
-            </h4>
-            <span></span>
-        </div>
-        <div>
-            <span class="las la-file-excel"></span>
-        </div>
+    <div class="metric" onclick="filterRequests('Cancelled')">
+        <h4>Cancelled</h4>
+        <p><?= $cancelledCount ?></p>
     </div>
-
-
 </div>
 
-        <br>
-
-            <div class="recent-grid11">
-    <div class="projects">
-        <div class="card">
-            <div class="card-header">
-            <h3>Pending Request</h3>
-            <button onclick="window.location.href='staff_request_form.php'">Add Request <span class="las la-plus"></span></button>
-            </div>
-
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table width="100%">
-                        <thead>
-                            <tr>
-                            <th>Request ID</th>
-                            <th>Department</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-    <?php
-        if ($requests->num_rows > 0) {
-            while ($request = $requests->fetch_assoc()) {
-                echo "<tr onclick='viewRequestDetails(" . $request['id'] . ")'>";
-                echo "<td>" . htmlspecialchars($request['id']) . "</td>";
-                echo "<td>" . htmlspecialchars($request['department']) . "</td>";
-                echo "<td>" . htmlspecialchars($request['amount']) . "</td>";
-                echo "<td>" . htmlspecialchars($request['status']) . "</td>";
-                echo "</tr>";
-            }
-        } else {
-            echo "<tr><td colspan='4'>No pending requests found</td></tr>";
-        }
-    ?>     
-</tbody>
 
 
-                    </table>
-                </div>
-            </div>
-        </div>
+<!-- Request Table -->
+<div class="request">
+    <div class="head">
+        <h3>Requests</h3>
+        <button onclick="window.location.href='staff_request_form.php'">
+            Add Request <span class="las la-plus"></span>
+        </button>
     </div>
 
+    <div class="table-responsive">
+        <table width="100%" class="request" id="request-table">
+            <thead>
+                <tr>
+                    <th>Request ID</th>
+                    <th>Requestor</th>
+                    <th>Department</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="request-table-body">
+            <?php
+    // Assuming your query looks like this:
+    $requests = $connection->query("SELECT requests.*, employees.name FROM requests 
+                                     JOIN employees ON requests.staff_id = employees.id 
+                                     WHERE requests.status IN ('Returned','Approved','Rejected','Cancelled') 
+                                     LIMIT $limit OFFSET $offset");
 
+    // The rest of your code remains the same.
+    if ($requests->num_rows > 0) {
+        while ($request = $requests->fetch_assoc()) {
+            echo "<tr class='request-row' data-status='" . htmlspecialchars($request['status']) . "' onclick='viewRequestDetails(" . $request['id'] . ")'>";
+            echo "<td>" . htmlspecialchars($request['id']) . "</td>";
+            echo "<td>" . htmlspecialchars($request['name']) . "</td>";
+            echo "<td>" . htmlspecialchars($request['department']) . "</td>";
+            echo "<td>" . htmlspecialchars($request['amount']) . "</td>";
+            echo "<td>" . htmlspecialchars($request['status']) . "</td>";
+            echo "</tr>";
+        }
+    } else {
+        echo "<tr><td colspan='5'>No requests found</td></tr>";
+    }
+?>
 
+</tbody>
 
+        </table>
+        <div class="pagination">
+    <?php if ($page > 1): ?>
+        <a href="?page=<?= $page - 1 ?>">Previous</a>
+    <?php endif; ?>
 
-                </div>
-            </div>
+    <span>Page <?= $page ?> of <?= $totalPages ?></span>
+
+    <?php if ($page < $totalPages): ?>
+        <a href="?page=<?= $page + 1 ?>">Next</a>
+    <?php endif; ?>
+</div>
+
+    </div>
+</div>
+
         </main>
     </div>
 
@@ -577,6 +705,37 @@ table tbody tr:hover {
 }
 
 </style>
+
+<script>
+    // JavaScript to filter the requests by status
+    function filterRequests(status) {
+        console.log("Filtering by status: " + status); // Debugging line
+
+        // Get all rows in the table
+        const rows = document.querySelectorAll('#request-table-body .request-row');
+
+        rows.forEach(row => {
+            const rowStatus = row.getAttribute('data-status');
+            console.log("Row status: " + rowStatus); // Debugging line
+
+            // Show or hide row based on matching status
+            if (rowStatus === status) {
+                row.style.display = ''; // Show the row
+            } else {
+                row.style.display = 'none'; // Hide the row
+            }
+        });
+    }
+
+    // Call filterRequests('Returned') when page loads to show "Returned" requests by default
+    window.onload = function() {
+        filterRequests('Returned');
+    }
+</script>
+
+
+
+
 
 </body>
 </html>

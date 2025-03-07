@@ -50,10 +50,9 @@ unset($_SESSION['error_message']);
             <a href="#"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
-                <li><a href="staff_analytics.php"><span class="las la-chart-line"></span> Analytics</a></li>
                 <li><a href="#"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="#"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="#"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>
             <li>

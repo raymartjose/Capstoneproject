@@ -6,7 +6,6 @@
     <title>Integrated Finance System</title>
     <link rel="icon" href="img/logo-sm.png">
     <link rel="stylesheet" href="assets/css/main.css">
-    <link rel="stylesheet" href="assets/css/request_form.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
     
 </head>
@@ -169,7 +168,7 @@ $unpaidInvoices = json_encode($invoiceData['unpaidInvoices']);
         </li>
         <li>
                 <a href="index.php"><span class="las la-file-invoice"></span>
-                <span>Invoice</span></a>
+                <span>Payroll</span></a>
             </li>
             <li>
             <a href="add_user.php"><span class="las la-users"></span>
@@ -675,13 +674,13 @@ const paidUnpaidChart = new Chart(ctx, {
             {
                 label: "Paid",
                 data: paidInvoices,
-                backgroundColor: "#4CAF50", // Green for Paid
+                backgroundColor: "#223D7B", // Green for Paid
                 stack: 'stack1', // Group bars by stack
             },
             {
                 label: "Unpaid",
                 data: unpaidInvoices,
-                backgroundColor: "#FF5733", // Red for Unpaid
+                backgroundColor: "#B80C0C", // Red for Unpaid
                 stack: 'stack1', // Group bars by stack
             }
         ]
@@ -723,7 +722,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     datasets: [{
                         label: "Unpaid Amount (₱)",
                         data: data.amounts,
-                        backgroundColor: "#ed6978"
+                        backgroundColor: "#4767B1"
                     }]
                 },
                 options: {
@@ -805,7 +804,7 @@ document.addEventListener("DOMContentLoaded", function () {
 }
 
 .card {
-    background: #ed6978;
+    background: #0a1d4e;
     color: white;
     padding: 20px;
     border-radius: 8px;
@@ -845,7 +844,7 @@ th, td {
 }
 
 th {
-    background: #ed6978;
+    background: #0a1d4e;
     color: white;
     font-size: 12px;
 }
@@ -1143,7 +1142,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function fetchTransactionHistory(customerId) {
-    fetch('get_customer_transactions.php?customer_id=' + customerId)
+    fetch('super_get_customer_transactions.php?customer_id=' + customerId)
     .then(response => response.text())
     .then(data => {
         document.getElementById("transactionContent").innerHTML = data;

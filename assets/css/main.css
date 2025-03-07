@@ -2,7 +2,7 @@
 
 
 :root {
-    --main-color: #ed6978;
+    --main-color: #0a1d4e;
     --main-color-light: #e0f7fa;
     --color-dark: #1D2231;
     --text-grey: #8390A2;
@@ -31,12 +31,12 @@
 }
 
 .sidebar {
-    width: 345px;
+    width: 300px;
     position: fixed;
     left: 0;
     top: 0;
     height: 100%;
-    background: #747373;
+    background: #0a1d4e;
     z-index: 100;
     transition: width 300ms;
 }
@@ -93,7 +93,7 @@
 }
 .sidebar-menu a:hover,
 .sidebar-menu a.active {
-    background: var(--main-color);
+    background: #d1697b;
     color: #fff;
 }
 
@@ -148,7 +148,7 @@ label[for="nav-toggle"] {
 
 .main-content {
     transition: margin-left 0.3s ease-in-out;
-    margin-left: 345px;
+    margin-left: 300px;
 }
 
 header {
@@ -158,8 +158,8 @@ header {
     padding: 1rem 1.5rem;
     box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
     position: fixed;
-    left: 345px;
-    width: calc(100% - 345px);
+    left: 300px;
+    width: calc(100% - 300px);
     top: 0;
     z-index: 100;
     transition: left 300ms;
@@ -279,7 +279,7 @@ main {
 
 
 .recent-grid {
-    margin-top: 3.5rem;
+    margin-top: 1rem;
     display: grid;
     grid-gap: 2rem;
     grid-template-columns: 65% auto;
@@ -375,8 +375,8 @@ tr td:last-child {
 }
 
 .customer {
-    display: flex;
-    justify-content: space-between;
+    width: 100%;
+    max-width: auto;
     align-items: center;
     padding: .5rem .7rem;
 }
