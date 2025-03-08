@@ -378,10 +378,10 @@ $customerResult = $connection->query($customerQuery);
 
 <?php
 
-// Initialize arrays
-$months = range(1, 12); // Ensure all 12 months are present
-$income_data = array_fill(0, 12, 0); // Default income = 0
-$tax_data = array_fill(0, 12, 0); // Default tax = 0
+// Initialize arrays for quarterly data
+$quarters = [1, 2, 3, 4]; // 4 quarters
+$income_data = array_fill(0, 4, 0); // Default quarterly income = 0
+$tax_data = array_fill(0, 4, 0); // Default quarterly tax = 0
 
 // Fetch monthly income from the database
 $sql_income = "SELECT MONTH(transaction_date) AS month, SUM(amount) AS total_income 
@@ -396,13 +396,15 @@ $tax_rate = 0.25; // 25% Tax deduction
 
 // Populate actual data
 while ($row = $result_income->fetch_assoc()) {
-    $month_index = (int)$row['month'] - 1; // Convert to array index (0-based)
-    $income_data[$month_index] = (float)$row['total_income']; // Assign income
-    $tax_data[$month_index] = $income_data[$month_index] * $tax_rate; // Calculate tax
+    $month = (int)$row['month'];
+    $quarter = ceil($month / 3) - 1; // Determine quarter (0 = Q1, 1 = Q2, etc.)
+    
+    $income_data[$quarter] += (float)$row['total_income']; // Add monthly income to the respective quarter
+    $tax_data[$quarter] += $income_data[$quarter] * $tax_rate; // Calculate tax for the quarter
 }
 
 // Convert PHP arrays to JSON for JavaScript
-$months_json = json_encode($months);
+$quarters_json = json_encode($quarters);
 $income_json = json_encode($income_data);
 $tax_json = json_encode($tax_data);
 ?>
@@ -1272,61 +1274,69 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
         <div class="invoice-container">
     <h3>All Invoices</h3>
     <div class="all-invoices">
-        <table id="allInvoicesTable">
+    <table id="allInvoicesTable">
             <thead>
                 <tr>
                     <th>Invoice ID</th>
                     <th>Customer Name</th>
                     <th>Total Amount</th>
-                    <th>Payment Date</th>
+                    <th>Due Date</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody id="invoiceTableBody">
-                <?php
-                $limit = 5; // Invoices per page
-                $page = isset($_GET['page']) ? $_GET['page'] : 1;
-                $offset = ($page - 1) * $limit;
+            <?php
+    // Update overdue status for unpaid invoices
+    $updateStatusSql = "UPDATE invoices 
+                        SET payment_status = 'overdue' 
+                        WHERE payment_status != 'paid' 
+                        AND due_date < CURDATE()";
+    $connection->query($updateStatusSql);
 
-                // Count total invoices for pagination
-                $countSql = "SELECT COUNT(*) AS total FROM invoices";
-                $countResult = $connection->query($countSql);
-                $totalInvoices = $countResult->fetch_assoc()['total'];
-                $totalPages = ceil($totalInvoices / $limit);
+    $limit = 5; // Invoices per page
+    $page = isset($_GET['page']) ? $_GET['page'] : 1;
+    $offset = ($page - 1) * $limit;
 
-                // Fetch invoices with LIMIT for pagination
-                $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
-                               i.total_amount, i.payment_date, i.payment_status 
-                        FROM invoices i
-                        INNER JOIN customers c ON i.customer_id = c.id
-                        ORDER BY i.payment_date DESC
-                        LIMIT ?, ?";
-                
-                $stmt = $connection->prepare($sql);
-                $stmt->bind_param("ii", $offset, $limit);
-                $stmt->execute();
-                $result = $stmt->get_result();
+    // Count total invoices for pagination
+    $countSql = "SELECT COUNT(*) AS total FROM invoices";
+    $countResult = $connection->query($countSql);
+    $totalInvoices = $countResult->fetch_assoc()['total'];
+    $totalPages = ceil($totalInvoices / $limit);
 
-                if ($result->num_rows > 0) {
-                    while ($row = $result->fetch_assoc()) {
-                        echo "<tr class='invoice-row' 
-                                data-customer-id='{$row['customer_id']}' 
-                                data-invoice-id='{$row['invoice_id']}'
-                                onclick='fetchTransactionHistory({$row['customer_id']})' 
-                                style='cursor:pointer;' 
-                                onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
-                                onmouseout=\"this.style.backgroundColor='';\">
-                                <td>{$row['invoice_id']}</td>
-                                <td>{$row['customer_name']}</td>
-                                <td>₱" . number_format($row['total_amount'], 2) . "</td>
-                                <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
-                                <td>{$row['payment_status']}</td>
-                            </tr>";
-                    }
-                } else {
-                    echo "<tr><td colspan='5' style='text-align: center;'>No invoices found</td></tr>";
-                }
-                ?>
+    // Fetch invoices with LIMIT for pagination
+    $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
+                   i.total_amount, i.due_date, i.payment_status 
+            FROM invoices i
+            INNER JOIN customers c ON i.customer_id = c.id
+            ORDER BY i.payment_date DESC
+            LIMIT ?, ?";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->bind_param("ii", $offset, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            echo "<tr class='invoice-row' 
+                    data-customer-id='{$row['customer_id']}' 
+                    data-invoice-id='{$row['invoice_id']}'
+                    onclick='fetchTransactionHistory({$row['customer_id']})' 
+                    style='cursor:pointer;' 
+                    onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
+                    onmouseout=\"this.style.backgroundColor='';\">
+                    <td>{$row['invoice_id']}</td>
+                    <td>{$row['customer_name']}</td>
+                    <td>₱" . number_format($row['total_amount'], 2) . "</td>
+                    <td>" . date("M d, Y", strtotime($row['due_date'])) . "</td>
+                    <td>{$row['payment_status']}</td>
+                </tr>";
+        }
+    } else {
+        echo "<tr><td colspan='5' style='text-align: center;'>No invoices found</td></tr>";
+    }
+?>
+
             </tbody>
         </table>
     </div>
@@ -1532,7 +1542,7 @@ function redirectToBudgetReport() {
 
 <script>
    // Prepare the data for Chart.js
-var months = <?php echo $months_json; ?>;
+var quarters = <?php echo $quarters_json; ?>;
 var incomeData = <?php echo $income_json; ?>;
 var taxData = <?php echo $tax_json; ?>;
 
@@ -1541,14 +1551,17 @@ var ctx = document.getElementById('taxDeductionChart').getContext('2d');
 var taxDeductionChart = new Chart(ctx, {
     type: 'bar', // Change to 'line' if you prefer
     data: {
-        labels: months.map(function(month) {
-            const date = new Date(0);
-            date.setMonth(month - 1);
-            return date.toLocaleString('default', { month: 'short' });
+        labels: quarters.map(function(quarter) {
+            switch(quarter) {
+                case 0: return 'Q1';
+                case 1: return 'Q2';
+                case 2: return 'Q3';
+                case 3: return 'Q4';
+            }
         }),
         datasets: [
             {
-                label: 'Monthly Income (₱)',
+                label: 'Quarterly Income (₱)',
                 data: incomeData,
                 backgroundColor: '#30c0dd',
                 borderColor: '#30c0dd',
@@ -1587,7 +1600,6 @@ var taxDeductionChart = new Chart(ctx, {
         }
     }
 });
-
 </script>
 
 
@@ -1595,6 +1607,8 @@ var taxDeductionChart = new Chart(ctx, {
 
 <script>
 // Parse the PHP data into JavaScript
+
+
 var incomeExpensesData = <?php echo json_encode($cash_flow_data); ?> || [];
 
 if (!Array.isArray(incomeExpensesData)) {
@@ -1627,6 +1641,28 @@ incomeExpensesData.forEach((data, index) => {
 
 console.log(forecastCashFlowValues); // Debugging
 
+let warningFlags = []; // Array to store warning flags
+
+incomeExpensesData.forEach((data, index) => {
+    let currentCashFlow = (data.current_income || 0) - (data.current_expenses || 0);
+    let lastMonthCashFlow = index > 0 ? (incomeExpensesData[index - 1].current_income || 0) - (incomeExpensesData[index - 1].current_expenses || 0) : null;
+
+    if (data.is_forecast) {
+        let forecastValue = (data.current_income || 0) - (data.current_expenses || 0);
+        forecastCashFlowValues.push(forecastValue);
+        warningFlags.push(false); // No warning for forecast
+    } else {
+        forecastCashFlowValues.push(currentCashFlow);
+        
+        // Check for warning conditions
+        if (currentCashFlow < 0 || (lastMonthCashFlow && currentCashFlow <= lastMonthCashFlow * 0.5)) {
+            warningFlags.push(true); // Add warning if cash flow is negative or <= 50% of last month
+        } else {
+            warningFlags.push(false); // No warning
+        }
+    }
+});
+
 // **🟢 Updated Cash Flow Chart with Forecast Shade**
 const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
     type: 'line',
@@ -1637,11 +1673,20 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
                 label: 'Current Year Cash Flow',
                 data: cashFlowValues,
                 fill: true,
-                backgroundColor: 'rgba(10, 29, 78, 0.2)',
-                borderColor: '#0a1d4e',
+                backgroundColor: (context) => {
+                    let index = context.dataIndex;
+                    return warningFlags[index] ? 'rgba(255, 99, 132, 0.2)' : 'rgba(10, 29, 78, 0.2)'; // Red shade for warning
+                },
+                borderColor: (context) => {
+                    let index = context.dataIndex;
+                    return warningFlags[index] ? '#ff6384' : '#0a1d4e'; // Red border for warning
+                },
                 borderWidth: 2,
                 pointRadius: 3,
-                pointBackgroundColor: '#30c0dd',
+                pointBackgroundColor: (context) => {
+                    let index = context.dataIndex;
+                    return warningFlags[index] ? '#ff6384' : '#30c0dd'; // Red points for warning
+                },
                 tension: 0.4
             },
             {
@@ -1658,10 +1703,10 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
             {
                 label: 'Forecasted Cash Flow',
                 data: forecastCashFlowValues,
-                fill: true, // Enables shading
-                backgroundColor: 'rgba(0, 255, 0, 0.2)', // Light green shade
+                fill: true,
+                backgroundColor: 'rgba(0, 255, 0, 0.2)',
                 borderColor: 'rgba(0, 255, 0, 1)',
-                borderDash: [5, 5], // Dashed line
+                borderDash: [5, 5],
                 borderWidth: 2,
                 pointRadius: 3,
                 pointBackgroundColor: '#00ff00',
@@ -1679,7 +1724,6 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
         }
     }
 });
-
 </script>
 
 <script>
