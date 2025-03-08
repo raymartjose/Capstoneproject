@@ -52,6 +52,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                // Step 2: Update the balance of 'Accounts Receivable' in the chart_of_accounts table
+                updateAccountsReceivableBalance();
+
+                // Step 3: Update or remove corresponding asset record in the assets table
+                updateAssetRecord($invoice_id, $payment_status);
+
                 echo "<script>alert('Invoice updated successfully.'); window.location.href='create_invoice.php';</script>";
             } else {
                 echo "<script>alert('Error updating invoice.');</script>";
@@ -75,4 +81,80 @@ function getInvoiceAmount($invoice_id) {
     mysqli_stmt_fetch($stmt);
     return $total_amount;
 }
+
+// Function to update 'Accounts Receivable' balance
+// Function to update 'Accounts Receivable' and 'Cash' balance
+function updateAccountsReceivableBalance() {
+    global $connection;
+
+    // Get total outstanding receivables
+    $receivablesQuery = "SELECT SUM(total_due) AS total_receivables FROM receivables WHERE total_due > 0";
+    $receivablesResult = $connection->query($receivablesQuery);
+    $receivablesRow = $receivablesResult->fetch_assoc();
+    $totalReceivables = $receivablesRow['total_receivables'] ?? 0.00;
+
+    // Update the balance for 'Accounts Receivable' in the chart_of_accounts table
+    $updateReceivablesQuery = "UPDATE chart_of_accounts SET balance = ? WHERE account_name = 'Accounts Receivable'";
+    $stmt = mysqli_prepare($connection, $updateReceivablesQuery);
+    mysqli_stmt_bind_param($stmt, 'd', $totalReceivables);
+    mysqli_stmt_execute($stmt);
+
+    // If payment is made, update the 'Cash' balance in the chart_of_accounts table
+    if ($payment_status == 'paid') {
+        $amount = getInvoiceAmount($invoice_id); // Fetch the payment amount
+
+        // Get current cash balance
+        $cashQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Cash'";
+        $cashResult = mysqli_query($connection, $cashQuery);
+        $cashRow = mysqli_fetch_assoc($cashResult);
+        $currentCashBalance = $cashRow['balance'] ?? 0.00;
+
+        // Update the cash balance by adding the payment amount
+        $newCashBalance = $currentCashBalance + $amount;
+        $updateCashQuery = "UPDATE chart_of_accounts SET balance = ? WHERE account_name = 'Cash'";
+        $updateCashStmt = mysqli_prepare($connection, $updateCashQuery);
+        mysqli_stmt_bind_param($updateCashStmt, 'd', $newCashBalance);
+        mysqli_stmt_execute($updateCashStmt);
+    }
+}
+
+
+// Function to update or remove asset record in the assets table
+function updateAssetRecord($invoice_id, $payment_status) {
+    global $connection;
+
+    // Fetch the asset linked to the invoice
+    $invoice_number = getInvoiceNumber($invoice_id);  // Assuming you have a function to get invoice number
+    $asset_query = "SELECT id, asset_name, value FROM assets WHERE asset_name LIKE '%$invoice_number%'";
+    $asset_result = mysqli_query($connection, $asset_query);
+
+    if ($asset_row = mysqli_fetch_assoc($asset_result)) {
+        $asset_id = $asset_row['id'];
+        $asset_value = $asset_row['value'];
+
+        if ($payment_status == 'paid' || $payment_status == 'cancel') {
+            // If payment is made or canceled, remove the asset
+            $delete_asset_query = "DELETE FROM assets WHERE id = ?";
+            $delete_asset_stmt = mysqli_prepare($connection, $delete_asset_query);
+            mysqli_stmt_bind_param($delete_asset_stmt, 'i', $asset_id);
+            mysqli_stmt_execute($delete_asset_stmt);
+            echo "Asset record removed for invoice $invoice_number.";
+        }
+    }
+}
+
+// Function to fetch invoice number (assuming you have a method for it)
+function getInvoiceNumber($invoice_id) {
+    global $connection;
+    $query = "SELECT id FROM invoices WHERE id = ?";
+    $stmt = mysqli_prepare($connection, $query);
+    mysqli_stmt_bind_param($stmt, 'i', $invoice_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $invoice_number);
+    mysqli_stmt_fetch($stmt);
+    return $invoice_number;
+}
+
+
+
 ?>

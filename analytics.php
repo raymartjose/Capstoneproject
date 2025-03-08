@@ -118,7 +118,7 @@ $totalNetPay = $payrollRow['total_netpay'] ?? 0;
 $totalExpenses += $totalNetPay;
 
 // Calculate net income after tax
-$netIncome = $total_income - $totalExpenses - $taxDeduction;
+$netIncome = $total_income - $totalExpenses;
 
 // Fetch income vs expenses data
 $sql_income_expenses = "WITH months AS (

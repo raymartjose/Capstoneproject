@@ -134,30 +134,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     // Insert into receivables
                     $receivableQuery = "INSERT INTO receivables (customer_name, invoice_id, due_date, current_amount, past_due_30, past_due_60, past_due_90, past_due_90plus)
-                        VALUES ('$customer_name', '$invoice_id', '$rental_end_date', '$total_amount', '0.00', '0.00', '0.00', '0.00')";
-                    mysqli_query($connection, $receivableQuery);
+                    VALUES ('$customer_name', '$invoice_id', '$rental_end_date', '$total_amount', '0.00', '0.00', '0.00', '0.00')";
+mysqli_query($connection, $receivableQuery);
 
-                    // Add receivable to assets
-                    $assetQuery = "INSERT INTO assets (asset_name, value, type)
-                                   VALUES ('Accounts Receivable #$invoice_no', '$total_amount', 'Account Receivable')";
-                    mysqli_query($connection, $assetQuery);
+// Add receivable to assets
+$assetQuery = "INSERT INTO assets (asset_name, value, type)
+               VALUES ('Accounts Receivable #$invoice_no', '$total_amount', 'Account Receivable')";
+mysqli_query($connection, $assetQuery);
 
-                    // Check if Accounts Receivable already exists
-                    $checkCOAQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
-                    $checkCOAResult = mysqli_query($connection, $checkCOAQuery);
+// Update the chart of accounts for Accounts Receivable
+$checkCOAQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+$checkCOAResult = mysqli_query($connection, $checkCOAQuery);
 
-                    if (mysqli_num_rows($checkCOAResult) > 0) {
-                        // Update existing balance
-                        $updateCOAQuery = "UPDATE chart_of_accounts SET balance = balance + '$total_amount' WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
-                        mysqli_query($connection, $updateCOAQuery);
-                    } else {
-                        // Insert new record if not exists
-                        $insertCOAQuery = "INSERT INTO chart_of_accounts (account_name, category, balance)
-                                           VALUES ('Accounts Receivable', 'Asset', '$total_amount')";
-                        mysqli_query($connection, $insertCOAQuery);
-                    }
+if (mysqli_num_rows($checkCOAResult) > 0) {
+    // Update the balance for Accounts Receivable with aggregated pending invoices
+    $updateCOAQuery = "UPDATE chart_of_accounts SET balance = balance + '$total_amount' WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+    mysqli_query($connection, $updateCOAQuery);
+} else {
+    // Insert a new record for Accounts Receivable if it doesn't exist
+    $insertCOAQuery = "INSERT INTO chart_of_accounts (account_name, category, balance)
+                       VALUES ('Accounts Receivable', 'Asset', '$total_amount')";
+    mysqli_query($connection, $insertCOAQuery);
+}
 
-                    echo json_encode(['success' => true, 'message' => 'Invoice added, receivable recorded.']);
+echo json_encode(['success' => true, 'message' => 'Invoice added and receivable recorded, pending balance updated in chart of accounts.']);
                 }
             } else {
                 echo json_encode(['success' => false, 'message' => 'Error adding invoice: ' . mysqli_error($connection)]);

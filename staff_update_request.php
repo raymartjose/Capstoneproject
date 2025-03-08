@@ -88,8 +88,8 @@ $transaction_query->close();
             <a href="#"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
-                <li><a href="#"><span class="las la-folder"></span> Chart of Accounts</a></li>
-                <li><a href="#"><span class="las la-chart-line"></span> Balance Sheet</a></li>
+                <li><a href="staff_coa.php"><span class="las la-folder"></span> Chart of Accounts</a></li>
+                <li><a href="staff_balance_sheet.php"><span class="las la-chart-line"></span> Balance Sheet</a></li>
                 <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>

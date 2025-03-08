@@ -360,7 +360,7 @@ tbody tr:nth-child(even) {
 /* Hover Effect */
 tbody tr:hover {
     background: var(--main-color);
-    color: white;
+    color: #fff;
     transition: 0.3s;
 }
 
@@ -445,9 +445,6 @@ button {
     transition: background 0.3s ease-in-out;
 }
 
-button:hover {
-    background: #d1697b;
-}
 
 /* Modal Animation */
 @keyframes fadeIn {

@@ -7,62 +7,33 @@
     <link rel="icon" href="img/logo-sm.png">
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 </head>
 <body>
-
+<style>
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 5px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #0a1d4e; color: white; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        select, input, button { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #0a1d4e; color: white; cursor: pointer; }
+        button:hover { background-color: #0a1d4e; }
+        .form-group { margin-top: 20px; display: flex; gap: 10px; }
+    </style>
 <?php
+include "assets/databases/dbconfig.php";
 session_start();  // Start the session
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");  // Redirect to login if not logged in
     exit();
 }
 
-include ('assets/databases/dbconfig.php');
-
-
 $user_name = $_SESSION['name'];  // User name from session
 $user_role = $_SESSION['role_display'];  // User role from session
-
-$limit = 10; // Number of records per page
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1; // Get the current page number, default to 1
-$offset = ($page - 1) * $limit; // Calculate the offset
-
-$requests = $connection->query("SELECT * FROM requests WHERE status IN ('Returned','Approved','Rejected','Cancelled') LIMIT $limit OFFSET $offset");
-
-$totalRequestsQuery = "SELECT COUNT(*) AS total FROM requests WHERE status IN ('Returned','Approved','Rejected','Cancelled')";
-    $totalResult = $connection->query($totalRequestsQuery);
-    $totalRow = $totalResult->fetch_assoc();
-    $totalRequests = $totalRow['total'];
-    $totalPages = ceil($totalRequests / $limit); // Total pages
-
-
-$returnedCount = 0;
-$approvedCount = 0;
-$rejectedCount = 0;
-$cancelledCount = 0;
-
-$statusQuery = "SELECT status, COUNT(*) as count FROM requests GROUP BY status";
-$statusResult = $connection->query($statusQuery);
-
-if ($statusResult->num_rows > 0) {
-    while ($row = $statusResult->fetch_assoc()) {
-        switch ($row['status']) {
-            case 'Returned':
-                $returnedCount = $row['count'];
-                break;
-            case 'Approved':
-                $approvedCount = $row['count'];
-                break;
-            case 'Rejected':
-                $rejectedCount = $row['count'];
-                break;
-            case 'Cancelled':
-                $cancelledCount = $row['count'];
-                break;
-        }
-    }
-}
 ?>
+
 
 <input type="checkbox" id="nav-toggle">
 <div class="sidebar">
@@ -77,15 +48,15 @@ if ($statusResult->num_rows > 0) {
                 <span>Dashboard</span></a>
             </li>
             <li>
-            <a href="staff_financial.php" class="active"><span class="las la-balance-scale"></span>
+            <a href="staff_financial.php"><span class="las la-balance-scale"></span>
             <span>Financial Request</span></a>
             </li>
             <li class="submenu">
-            <a href="#"><span class="las la-sitemap"></span>
+            <a href="#" class="active"><span class="las la-sitemap"></span>
             <span>Financial Reports</span></a>
             <ul class="submenu-items">
                 <li><a href="staff_coa.php"><span class="las la-folder"></span> Chart of Accounts</a></li>
-                <li><a href="staff_balance_sheet.php"><span class="las la-chart-line"></span> Balance Sheet</a></li>
+                <li><a href="staff_balance_sheet.php" class="active"><span class="las la-chart-line"></span> Balance Sheet</a></li>
                 <li><a href="staff_account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
             </ul>
         </li>
@@ -108,10 +79,9 @@ if ($statusResult->num_rows > 0) {
                 <label for="nav-toggle">
                     <span class="las la-bars"></span>
                 </label>
-                Financial Request
+                Balance Sheet
                 </h2>
                 </div>
-                
 
                 <div class="user-wrapper">
 
@@ -143,8 +113,8 @@ if ($statusResult->num_rows > 0) {
     </div>
 </div>
                 </div>
-        </header>
-        <style>
+</header>
+<style>
  /* Hide modal initially with smooth fade-in effect */
 #changePasswordModal {
     display: none;
@@ -291,210 +261,161 @@ if ($statusResult->num_rows > 0) {
             </div>
         </div>
 
-        <style>
-.kpi-metrics {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 3 cards per row */
-    gap: 10px;
-    margin-bottom: 5px;
-}
-.metric {
-    cursor: pointer;
-    background: #0a1d4e;
-    color: white;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: center;
-}
-
-.metric:hover {
-        background-color: #0056b3;
-    }
-.head {
-        display: flex;
-        justify-content: space-between; /* Align heading left and button right */
-        align-items: center; /* Vertically center the content */
-        margin-bottom: 10px;
-    }
-
-    /* Styling for the heading */
-    .head h3 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: bold;
-        color: #333;
-    }
-
-    /* Styling for the button */
-    .head button {
-        background-color: #0a1d4e;
-        color: white;
-        border: none;
-        cursor: pointer;
-        padding: 10px;
-        font-size: 12px;
-        font-weight: bold;
-        border-radius: 5px; /* Rounded corners */
-        transition: background 0.3s ease, box-shadow 0.3s ease;
-        display: inline-flex;
-        align-items: center; /* Vertically center the content */
-        gap: 8px;
-    }
-
-    .head button:hover {
-        background-color: #0056b3;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-    }
-
-    /* Font awesome plus icon */
-    .head button .las {
-        font-size: 18px;
-    }
-
-    /* Table styling */
-    .request {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .request th, .request td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: left;
-    }
-
-    .request th {
-        background-color: #0a1d4e;
-        color: white;
-        font-size: 13px;
-    }
-
-    .request td {
-        font-size: 14px;
-    }
-
-    .request tbody tr:hover {
-        background-color: #d1697b; /* Hover effect for rows */
-        cursor: pointer;
-    }
-
-    .pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 20px;
-}
-
-.pagination a {
-    margin: 0 10px;
-    padding: 5px 10px;
-    background-color: #0a1d4e;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-}
-
-.pagination a:hover {
-    background-color: #0056b3;
-}
-
-.pagination span {
-    padding: 5px 10px;
-}
-
-            </style>
-        
         <main>
-       
-
-        <div class="kpi-metrics">
-    <div class="metric" onclick="filterRequests('Returned')">
-        <h4>Returned</h4>
-        <p><?= $returnedCount ?></p>
-    </div>
-    <div class="metric" onclick="filterRequests('Approved')">
-        <h4>Approved</h4>
-        <p><?= $approvedCount ?></p>
-    </div>
-    <div class="metric" onclick="filterRequests('Rejected')">
-        <h4>Rejected</h4>
-        <p><?= $rejectedCount ?></p>
-    </div>
-    <div class="metric" onclick="filterRequests('Cancelled')">
-        <h4>Cancelled</h4>
-        <p><?= $cancelledCount ?></p>
-    </div>
-</div>
 
 
-
-<!-- Request Table -->
-<div class="request">
-    <div class="head">
-        <h3>Requests</h3>
-        <button onclick="window.location.href='staff_request_form.php'">
-            Add Request <span class="las la-plus"></span>
-        </button>
-    </div>
-
-    <div class="table-responsive">
-        <table width="100%" class="request" id="request-table">
-            <thead>
-                <tr>
-                    <th>Request ID</th>
-                    <th>Requestor</th>
-                    <th>Department</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="request-table-body">
+        <div class="container">
+        <label for="yearSelector">Select Year:</label>
+        <select id="yearSelector" onchange="fetchBalanceSheet()">
             <?php
-    // Assuming your query looks like this:
-    $requests = $connection->query("SELECT requests.*, employees.name FROM requests 
-                                     JOIN employees ON requests.staff_id = employees.id 
-                                     WHERE requests.status IN ('Returned','Approved','Rejected','Cancelled') 
-                                     LIMIT $limit OFFSET $offset");
+            include('assets/databases/dbconfig.php');
+            $yearsQuery = "SELECT DISTINCT YEAR(created_at) as year FROM assets UNION SELECT DISTINCT YEAR(created_at) FROM liabilities ORDER BY year DESC";
+            $yearsResult = $connection->query($yearsQuery);
+            while ($row = $yearsResult->fetch_assoc()) {
+                echo "<option value='" . $row['year'] . "'>" . $row['year'] . "</option>";
+            }
+            ?>
+        </select>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Subcategory</th>
+                        <th class="text-right">Amount (Current Year)</th>
+                        <th class="text-right">Amount (Previous Year)</th>
+                    </tr>
+                </thead>
+                <tbody id="balanceSheetBody">
+                    <?php include('fetch_balance_sheet.php'); ?>
+                </tbody>
+            </table>
+        </div>
+        <!--
+        <h2 class="mt-4">Add New Asset</h2>
+        <form id="addAssetForm" class="form-group">
+            <input type="text" name="type" placeholder="Asset Type" required>
+            <input type="number" name="value" placeholder="Amount" required>
+            <button type="submit">Add Asset</button>
+        </form>
+        
+        <h2 class="mt-4">Add New Liability</h2>
+        <form id="addLiabilityForm" class="form-group">
+            <input type="text" name="liability_name" placeholder="Liability Name" required>
+            <input type="number" name="amount" placeholder="Amount" required>
+            <button type="submit">Add Liability</button>
+        </form>
+        -->
 
-    // The rest of your code remains the same.
-    if ($requests->num_rows > 0) {
-        while ($request = $requests->fetch_assoc()) {
-            echo "<tr class='request-row' data-status='" . htmlspecialchars($request['status']) . "' onclick='viewRequestDetails(" . $request['id'] . ")'>";
-            echo "<td>" . htmlspecialchars($request['id']) . "</td>";
-            echo "<td>" . htmlspecialchars($request['name']) . "</td>";
-            echo "<td>" . htmlspecialchars($request['department']) . "</td>";
-            echo "<td>" . htmlspecialchars($request['amount']) . "</td>";
-            echo "<td>" . htmlspecialchars($request['status']) . "</td>";
-            echo "</tr>";
-        }
-    } else {
-        echo "<tr><td colspan='5'>No requests found</td></tr>";
+        <div class="charts-container">
+    <div style="display: flex; justify-content: space-between;">
+        <div style="width: 48%;">
+            <h4>Current Year</h4>
+            <canvas id="currentYearChart"></canvas>
+        </div>
+        <div style="width: 48%;">
+            <h4>Previous Year</h4>
+            <canvas id="previousYearChart"></canvas>
+        </div>
+    </div>
+</div>
+
+    </div>
+
+
+    <style>
+    .charts-container {
+        padding: 40px;
+        width: 100%;
+        max-width: auto;
+        background-color: #f4f6f9; /* Light background with soft gradient */
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-?>
 
-</tbody>
+    .charts-container h4 {
+        font-size: 1rem;
+        color: #0a1d4e;
+        text-align: center;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
 
-        </table>
-        <div class="pagination">
-    <?php if ($page > 1): ?>
-        <a href="?page=<?= $page - 1 ?>">Previous</a>
-    <?php endif; ?>
+    .charts-container > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 2%; /* Space between the charts */
 
-    <span>Page <?= $page ?> of <?= $totalPages ?></span>
+    }
 
-    <?php if ($page < $totalPages): ?>
-        <a href="?page=<?= $page + 1 ?>">Next</a>
-    <?php endif; ?>
+    .charts-container > div > div {
+        width: 50%;
+    }
+
+    .charts-container canvas {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        background-color: #ffffff;
+        border: 1px solid #e3e7f1;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+        padding: 10px;
+    }
+
+    /* Styling for the bar chart's tooltips */
+    .chartjs-tooltip {
+        background-color: rgba(0, 0, 0, 0.7) !important;
+        color: white !important;
+        font-size: 0.9rem;
+        padding: 8px;
+        border-radius: 4px;
+    }
+</style>
+    </main>
 </div>
 
-    </div>
-</div>
+<script>
+        function fetchBalanceSheet() {
+            const year = document.getElementById('yearSelector').value;
+            fetch(`fetch_balance_sheet.php?year=${year}`)
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('balanceSheetBody').innerHTML = data;
+                });
+        }
+    </script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const openModalBtn = document.getElementById("openChangePasswordModal");
+    const closeModalBtn = document.getElementById("closeModal");
+    const modal = document.getElementById("changePasswordModal");
 
-        </main>
-    </div>
+    if (openModalBtn && closeModalBtn && modal) {
+        openModalBtn.addEventListener("click", function(event) {
+            event.preventDefault(); // Prevent default anchor action
+            modal.classList.add("show"); // Add 'show' class to display modal
+        });
 
+        closeModalBtn.addEventListener("click", function() {
+            modal.classList.remove("show"); // Remove 'show' class to hide modal
+        });
 
-    <script>
+        // Close modal when clicking outside the modal dialog
+        window.addEventListener("click", function(event) {
+            if (event.target === modal) {
+                modal.classList.remove("show");
+            }
+        });
+    } else {
+        console.error("Modal or trigger elements not found.");
+    }
+});
+</script>
+<script>
 document.addEventListener("DOMContentLoaded", function() {
     const bellIcon = document.getElementById("notification-bell");
     const overdueCount = document.getElementById("overdue-count");
@@ -658,84 +579,94 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 
 <script>
-    function viewRequestDetails(requestId) {
-        // For demonstration, we will just alert the request ID
-        window.location.href = "staff_update_request.php?id=" + requestId;
+    // Fetch the PHP data (subcategories and amounts) for the current year and previous year
+    const balanceData = <?php echo json_encode($data); ?>;
+
+    // Prepare the labels (subcategories) and the data for the current year and previous year
+    let currentYearData = [];
+    let previousYearData = [];
+    let labels = [];
+
+    // Loop through the balance data and populate the labels and values
+    for (let category in balanceData) {
+        for (let subcategory in balanceData[category]) {
+            labels.push(subcategory); // Add subcategory as label
+
+            // For current year and previous year
+            currentYearData.push(balanceData[category][subcategory][<?php echo $currentYear; ?>] || 0);
+            previousYearData.push(balanceData[category][subcategory][<?php echo $previousYear; ?>] || 0);
+        }
     }
-</script>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const openModalBtn = document.getElementById("openChangePasswordModal");
-    const closeModalBtn = document.getElementById("closeModal");
-    const modal = document.getElementById("changePasswordModal");
-
-    if (openModalBtn && closeModalBtn && modal) {
-        openModalBtn.addEventListener("click", function(event) {
-            event.preventDefault(); // Prevent default anchor action
-            modal.classList.add("show"); // Add 'show' class to display modal
-        });
-
-        closeModalBtn.addEventListener("click", function() {
-            modal.classList.remove("show"); // Remove 'show' class to hide modal
-        });
-
-        // Close modal when clicking outside the modal dialog
-        window.addEventListener("click", function(event) {
-            if (event.target === modal) {
-                modal.classList.remove("show");
+    // Current Year Chart
+    const ctx1 = document.getElementById('currentYearChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Amount (Current Year)',
+                data: currentYearData,
+                backgroundColor: '#0a1d4e',
+                borderColor: '#0a1d4e',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                datalabels: {
+                    color: '#fff', // White text color
+                    anchor: 'end', // Position the label at the center of the bar
+                    align: 'start',  // Align the label at the center
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
             }
-        });
-    } else {
-        console.error("Modal or trigger elements not found.");
-    }
-});
-</script>
+        },
+        plugins: [ChartDataLabels]
+    });
 
-
-<style>
-    /* Add these styles to your CSS file or within a <style> tag */
-table tbody tr {
-    cursor: pointer; /* Changes the cursor to a pointer when hovering over rows */
-}
-
-table tbody tr:hover {
-    background-color: #d1697b; /* Adds a light gray background on hover */
-    transition: background-color 0.3s ease; /* Smooth transition for the hover effect */
-}
-
-</style>
-
-<script>
-    // JavaScript to filter the requests by status
-    function filterRequests(status) {
-        console.log("Filtering by status: " + status); // Debugging line
-
-        // Get all rows in the table
-        const rows = document.querySelectorAll('#request-table-body .request-row');
-
-        rows.forEach(row => {
-            const rowStatus = row.getAttribute('data-status');
-            console.log("Row status: " + rowStatus); // Debugging line
-
-            // Show or hide row based on matching status
-            if (rowStatus === status) {
-                row.style.display = ''; // Show the row
-            } else {
-                row.style.display = 'none'; // Hide the row
+    // Previous Year Chart
+    const ctx2 = document.getElementById('previousYearChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Amount (Previous Year)',
+                data: previousYearData,
+                backgroundColor: '#FFA725',
+                borderColor: '#FFA725',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                datalabels: {
+                    color: '#fff', // White text color
+                    anchor: 'end', // Position the label at the center of the bar
+                    align: 'start',  // Align the label at the center
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
             }
-        });
-    }
-
-    // Call filterRequests('Returned') when page loads to show "Returned" requests by default
-    window.onload = function() {
-        filterRequests('Returned');
-    }
+        },
+        plugins: [ChartDataLabels]
+    });
 </script>
-
-
-
-
-
 </body>
 </html>

@@ -7,18 +7,22 @@
     <link rel="icon" href="img/logo-sm.png">
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+
     
 </head>
 <body>
     <style>
         .table-container { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
-        th { background-color: #ed6978; color: white; font-weight: bold; }
+        th, td { padding: 5px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #0a1d4e; color: white; font-weight: bold; }
         tr:nth-child(even) { background-color: #f2f2f2; }
         select, input, button { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        button { background-color: #ed6978; color: white; cursor: pointer; }
-        button:hover { background-color: #d1697b; }
+        button { background-color: #0a1d4e; color: white; cursor: pointer; }
+        button:hover { background-color: #0a1d4e; }
         .form-group { margin-top: 20px; display: flex; gap: 10px; }
     </style>
 
@@ -269,7 +273,6 @@ $user_role = $_SESSION['role_display'];  // User role from session
 
         <main>
         <div class="container">
-        <h1>Balance Sheet</h1>
         <label for="yearSelector">Select Year:</label>
         <select id="yearSelector" onchange="fetchBalanceSheet()">
             <?php
@@ -297,7 +300,7 @@ $user_role = $_SESSION['role_display'];  // User role from session
                 </tbody>
             </table>
         </div>
-        
+        <!--
         <h2 class="mt-4">Add New Asset</h2>
         <form id="addAssetForm" class="form-group">
             <input type="text" name="type" placeholder="Asset Type" required>
@@ -311,7 +314,77 @@ $user_role = $_SESSION['role_display'];  // User role from session
             <input type="number" name="amount" placeholder="Amount" required>
             <button type="submit">Add Liability</button>
         </form>
+        -->
+
+        <div class="charts-container">
+    <div style="display: flex; justify-content: space-between;">
+        <div style="width: 48%;">
+            <h4>Current Year</h4>
+            <canvas id="currentYearChart"></canvas>
+        </div>
+        <div style="width: 48%;">
+            <h4>Previous Year</h4>
+            <canvas id="previousYearChart"></canvas>
+        </div>
     </div>
+</div>
+
+    </div>
+
+
+    <style>
+    .charts-container {
+        padding: 40px;
+        width: 100%;
+        max-width: auto;
+        background-color: #f4f6f9; /* Light background with soft gradient */
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .charts-container h4 {
+        font-size: 1rem;
+        color: #0a1d4e;
+        text-align: center;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .charts-container > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 2%; /* Space between the charts */
+
+    }
+
+    .charts-container > div > div {
+        width: 50%;
+    }
+
+    .charts-container canvas {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+        background-color: #ffffff;
+        border: 1px solid #e3e7f1;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+        padding: 10px;
+    }
+
+    /* Styling for the bar chart's tooltips */
+    .chartjs-tooltip {
+        background-color: rgba(0, 0, 0, 0.7) !important;
+        color: white !important;
+        font-size: 0.9rem;
+        padding: 8px;
+        border-radius: 4px;
+    }
+</style>
+
+
         </main>
     </div>
 
@@ -482,5 +555,98 @@ document.addEventListener("DOMContentLoaded", function() {
     fetchNotifications();
 });
 </script>
+
+<script>
+    // Fetch the PHP data (subcategories and amounts) for the current year and previous year
+    const balanceData = <?php echo json_encode($data); ?>;
+
+    // Prepare the labels (subcategories) and the data for the current year and previous year
+    let currentYearData = [];
+    let previousYearData = [];
+    let labels = [];
+
+    // Loop through the balance data and populate the labels and values
+    for (let category in balanceData) {
+        for (let subcategory in balanceData[category]) {
+            labels.push(subcategory); // Add subcategory as label
+
+            // For current year and previous year
+            currentYearData.push(balanceData[category][subcategory][<?php echo $currentYear; ?>] || 0);
+            previousYearData.push(balanceData[category][subcategory][<?php echo $previousYear; ?>] || 0);
+        }
+    }
+
+    // Current Year Chart
+    const ctx1 = document.getElementById('currentYearChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Amount (Current Year)',
+                data: currentYearData,
+                backgroundColor: '#0a1d4e',
+                borderColor: '#0a1d4e',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                datalabels: {
+                    color: '#fff', // White text color
+                    anchor: 'end', // Position the label at the center of the bar
+                    align: 'start',  // Align the label at the center
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // Previous Year Chart
+    const ctx2 = document.getElementById('previousYearChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Amount (Previous Year)',
+                data: previousYearData,
+                backgroundColor: '#FFA725',
+                borderColor: '#FFA725',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                datalabels: {
+                    color: '#fff', // White text color
+                    anchor: 'end', // Position the label at the center of the bar
+                    align: 'start',  // Align the label at the center
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+</script>
+
+
 </body>
 </html>
