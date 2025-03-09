@@ -1606,9 +1606,12 @@ var taxDeductionChart = new Chart(ctx, {
 
 
 <script>
+// Function to format numbers as currency with Peso sign
+function formatCurrency(value) {
+    return `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+}
+
 // Parse the PHP data into JavaScript
-
-
 var incomeExpensesData = <?php echo json_encode($cash_flow_data); ?> || [];
 
 if (!Array.isArray(incomeExpensesData)) {
@@ -1663,7 +1666,7 @@ incomeExpensesData.forEach((data, index) => {
     }
 });
 
-// **🟢 Updated Cash Flow Chart with Forecast Shade**
+// **🟢 Updated Cash Flow Chart with Peso Symbol on Y-Axis and Tooltips**
 const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
     type: 'line',
     data: {
@@ -1694,7 +1697,7 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
                 data: lastYearCashFlowValues,
                 fill: true,
                 backgroundColor: 'rgba(99, 247, 255, 0.2)',
-                borderColor: '#rgb(99, 247, 255)',
+                borderColor: 'rgb(99, 247, 255)',
                 borderWidth: 2,
                 pointRadius: 3,
                 pointBackgroundColor: 'rgb(99, 247, 255)',
@@ -1717,13 +1720,29 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
     options: {
         responsive: true,
         plugins: {
-            legend: { position: 'top' }
+            legend: { position: 'top' },
+            tooltip: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                        let value = tooltipItem.raw || 0;
+                        return formatCurrency(value); // Format tooltip values with ₱
+                    }
+                }
+            }
         },
         scales: {
-            y: { beginAtZero: true }
+            y: { 
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return formatCurrency(value); // Format Y-axis labels with ₱
+                    }
+                }
+            }
         }
     }
 });
+
 </script>
 
 <script>

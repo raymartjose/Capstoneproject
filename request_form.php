@@ -74,6 +74,77 @@ $transaction_query->close();
 
 
 
+$_SESSION['department'] = $request_data['department'];
+$selected_department = isset($_GET['department']) ? trim($_GET['department']) : $_SESSION['department'] ?? '';
+
+if (empty($selected_department)) {
+    echo "<p style='color: red;'>No department selected.</p>";
+}
+
+// Get previous month date range
+$prevMonthStart = date("Y-m-01", strtotime("first day of last month"));
+$prevMonthEnd = date("Y-m-t", strtotime("last day of last month"));
+
+// Query: Get total previous month expenses & approved budget
+$summaryQuery = "SELECT 
+                COALESCE(SUM(ex.amount), 0) AS total_previous_expense,
+                COALESCE(SUM(r.amount), 0) AS total_previous_budget
+            FROM employees e
+            LEFT JOIN employee_expenses ex 
+                ON e.id = ex.employee_id 
+                AND ex.expense_date BETWEEN ? AND ?
+            LEFT JOIN requests r 
+                ON e.department = r.department 
+                AND r.created_at BETWEEN ? AND ?
+            WHERE e.department = ?";
+
+$summaryStmt = mysqli_prepare($connection, $summaryQuery);
+mysqli_stmt_bind_param($summaryStmt, "sssss", $prevMonthStart, $prevMonthEnd, $prevMonthStart, $prevMonthEnd, $selected_department);
+mysqli_stmt_execute($summaryStmt);
+$summaryResult = mysqli_stmt_get_result($summaryStmt);
+$summaryData = mysqli_fetch_assoc($summaryResult);
+
+$total_previous_expense = $summaryData['total_previous_expense'];
+$total_previous_budget = $summaryData['total_previous_budget'];
+
+// Query: Get expense breakdown per category
+$breakdownQuery = "SELECT 
+                ex.category,
+                COALESCE(SUM(ex.amount), 0) AS category_expense
+            FROM employees e
+            LEFT JOIN employee_expenses ex 
+                ON e.id = ex.employee_id 
+                AND ex.expense_date BETWEEN ? AND ?
+            WHERE e.department = ?
+            GROUP BY ex.category";
+
+$breakdownStmt = mysqli_prepare($connection, $breakdownQuery);
+mysqli_stmt_bind_param($breakdownStmt, "sss", $prevMonthStart, $prevMonthEnd, $selected_department);
+mysqli_stmt_execute($breakdownStmt);
+$breakdownResult = mysqli_stmt_get_result($breakdownStmt);
+
+$expense_breakdown = [];
+while ($row = mysqli_fetch_assoc($breakdownResult)) {
+    $expense_breakdown[] = $row;
+}
+
+// Performance Score Calculation
+$performance_score = ($total_previous_expense > 0 && $total_previous_budget > 0) 
+    ? min(($total_previous_expense / $total_previous_budget) * 100, 100) 
+    : 100;
+
+// Approval Justification
+$budget_variance = $total_previous_expense > 0 ? (($total_previous_budget - $total_previous_expense) / $total_previous_expense) * 100 : 100;
+if ($budget_variance <= 10) {
+    $approval_recommendation = "✅ Likely to be Approved";
+    $justification = "Spending is consistent with previous trends.";
+} elseif ($budget_variance > 10 && $budget_variance <= 30) {
+    $approval_recommendation = "⚠️ Requires Justification";
+    $justification = "Moderate increase. Department must provide reasoning.";
+} else {
+    $approval_recommendation = "❌ High Increase - Review Needed";
+    $justification = "Significant increase detected. Justification required.";
+}
 ?>
 
 <input type="checkbox" id="nav-toggle">
@@ -160,13 +231,183 @@ $transaction_query->close();
 </div>
                 </div>
         </header>
+        <style>
+            .tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    background: #0a1d4e;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.tab-button.active {
+    background: #0056b3;
+}
+
+.tab-content {
+    background: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.budget-report {
+    background: white;
+    padding: 30px;
+    width: 100%;
+    max-width: auto;
+    margin: auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.report-header {
+    text-align: center;
+}
+
+.report-header h1 {
+    color: #0047AB;
+}
+
+hr {
+    border: 1px solid #ddd;
+    margin: 20px 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+th {
+    background: #0047AB;
+    color: white;
+}
+
+.recommendations ul {
+    margin-top: 10px;
+}
+
+.footer {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 30px;
+    color: gray;
+}
+
+@media (max-width: 768px) {
+    .budget-report {
+        width: 100%;
+        padding: 15px;
+    }
+
+    th, td {
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    .recommendations ul {
+        padding-left: 15px;
+    }
+}
+
+        </style>
         
         <main>
+        <div class="tabs">
+        <button class="tab-button active" onclick="showTab('request-display')">Request Details</button>
+    <button class="tab-button" onclick="showTab('budget-utilization')">Budget Utilization</button>
+</div>
+
+<div id="budget-utilization" class="tab-content" style="display: block;">
+    <div class="budget-report">
+        <div class="report-header">
+            <h1>Budget Summary & Performance Report</h1>
+            <p><strong>Department:</strong> <?php echo htmlspecialchars($selected_department); ?></p>
+            <p><strong>Report Date:</strong> <span id="report-date"><?php echo date("F j, Y"); ?></span></p>
+            <hr>
+        </div>
+
+        <div class="budget-performance">
+            <h2>Overall Budget Performance</h2>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Total Previous Month Expenses</th>
+                        <th>Total Previous Month Budget Approved</th>
+                        <th>Budget Change (%)</th>
+                        <th>Performance Score</th>
+                        <th>Approval Recommendation</th>
+                        <th>Justification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><?php echo "₱" . number_format($total_previous_expense, 2); ?></td>
+                        <td><?php echo "₱" . number_format($total_previous_budget, 2); ?></td>
+                        <td><?php echo number_format($budget_variance, 2) . "%"; ?></td>
+                        <td><?php echo number_format($performance_score, 2) . "%"; ?></td>
+                        <td><?php echo $approval_recommendation; ?></td>
+                        <td><?php echo $justification; ?></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="expense-breakdown">
+            <h2>Expense Breakdown for Previous Month</h2>
+            <table class="breakdown-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Previous Month Expenses</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($expense_breakdown as $row): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($row['category']); ?></td>
+                            <td><?php echo "₱" . number_format($row['category_expense'], 2); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="recommendations">
+            <h2>Final Decision Insights</h2>
+            <p>Based on historical performance, budget requests are assessed with the following recommendations:</p>
+            <ul>
+                <li>✅ **Low increase (≤10%)** – Approval likely.</li>
+                <li>⚠️ **Moderate increase (10-30%)** – Justification required.</li>
+                <li>❌ **High increase (>30%)** – Needs review before approval.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <hr>
+            <p>Confidential Report – Generated by [Company Name]</p>
+        </div>
+    </div>
+</div>
 
 
-
+<div id="request-display" class="tab-content" style="display: none;">
         <div id="request-details">
-    <h2>Request Details</h2>
+    <h2 id="h2">Request Details</h2>
     <form action="update_request.php?page=super_financial.php" method="POST" enctype="multipart/form-data">
     <input type="hidden" name="request_id" value="<?php echo $request_id; ?>">
 
@@ -216,7 +457,7 @@ $transaction_query->close();
 
 
         <div id="documents">
-    <h2>Documents</h2>
+    <h2 id="h2">Documents</h2>
 
     <div id="attachments-container">
     <div class="attachment-row">
@@ -255,7 +496,7 @@ $transaction_query->close();
 
 <div id="remarks">
     <div class="remarks-wrapper">
-    <h2>Remarks</h2>
+    <h2 id="h2">Remarks</h2>
     <div class="remarks-container">
     <?php while ($remark = $remarks_query->fetch_assoc()): ?>
         <div class="remark-message">
@@ -281,6 +522,7 @@ $transaction_query->close();
     <div class="transaction-graph-container">
     <h3>Transaction History</h3>
     <canvas id="transactionChart"></canvas>
+</div>
 </div>
 </div>
         </main>
@@ -604,5 +846,25 @@ document.addEventListener("DOMContentLoaded", function() {
     fetchNotifications();
 });
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    showTab('request-display'); // Set the default visible tab on page load
+});
+
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+    document.getElementById(tabId).style.display = 'block';
+
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+
+    document.querySelector(`.tab-button[onclick="showTab('${tabId}')"]`).classList.add('active');
+}
+</script>
+
 </body>
 </html>

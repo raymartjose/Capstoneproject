@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="assets/css/main.css">
     <link rel="stylesheet" href="assets/css/staff_request_form.css">
     <link rel= "stylesheet" href= "https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css" >
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 </head>
 <body>
 
@@ -22,6 +24,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_name = $_SESSION['name'];
 $user_role = $_SESSION['role_display'];
+
 
 ?>
 <?php
@@ -129,9 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <main>
 
-
+<div style="background: white; width: 100%; max-width: auto; padding: 30px;">
 <div id="request-details">
-    <h2>Request Details</h2>
+    <h2 id="h2">Request Details</h2>
     <form action="save_request.php" method="POST">
 
     <div class="form-group">
@@ -198,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
         <div id="documents">
-    <h2>Documents</h2>
+    <h2 id="h2">Documents</h2>
 
     <div id="attachments-container">
     <div class="attachment-row">
@@ -222,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div id="remarks">
     <div class="remarks-wrapper">
         <!-- Remarks Column -->
-        <h2>Remarks</h2>
+        <h2 id="h2">Remarks</h2>
         <div class="remarks-container">
         <div class="remark-message">
             <div class="remark-header">
@@ -244,6 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 
 
+</div>
 </div>
         </main>
     </div>
@@ -565,6 +569,7 @@ document.getElementById("staff_name").addEventListener("change", function() {
     }
 });
 </script>
+
 
 </body>
 </html>
