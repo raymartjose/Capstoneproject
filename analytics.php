@@ -131,22 +131,10 @@ current_year AS (
     WHERE YEAR(transaction_date) = YEAR(CURDATE())
     GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
 ),
-last_year AS (
-    SELECT DATE_FORMAT(transaction_date, '%Y-%m') AS month, SUM(amount) AS total_income
-    FROM transactions
-    WHERE YEAR(transaction_date) = YEAR(CURDATE()) - 1
-    GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
-),
 current_expenses AS (
     SELECT DATE_FORMAT(expense_date, '%Y-%m') AS month, SUM(amount) AS total_expenses
     FROM employee_expenses
     WHERE YEAR(expense_date) = YEAR(CURDATE())
-    GROUP BY DATE_FORMAT(expense_date, '%Y-%m')
-),
-last_expenses AS (
-    SELECT DATE_FORMAT(expense_date, '%Y-%m') AS month, SUM(amount) AS total_expenses
-    FROM employee_expenses
-    WHERE YEAR(expense_date) = YEAR(CURDATE()) - 1
     GROUP BY DATE_FORMAT(expense_date, '%Y-%m')
 ),
 current_payroll AS (
@@ -154,104 +142,58 @@ current_payroll AS (
     FROM payroll
     WHERE YEAR(processed_at) = YEAR(CURDATE())
     GROUP BY DATE_FORMAT(processed_at, '%Y-%m')
-),
-last_payroll AS (
-    SELECT DATE_FORMAT(processed_at, '%Y-%m') AS month, SUM(net_pay) AS total_payroll
-    FROM payroll
-    WHERE YEAR(processed_at) = YEAR(CURDATE()) - 1
-    GROUP BY DATE_FORMAT(processed_at, '%Y-%m')
 )
 SELECT 
     m.month,
     COALESCE(c.total_income, 0) AS current_income,
-    COALESCE(l.total_income, 0) AS last_year_income,
-    COALESCE(c.total_income, 0) - COALESCE(l.total_income, 0) AS income_difference,
-    CASE 
-        WHEN COALESCE(l.total_income, 0) = 0 THEN NULL
-        ELSE ((COALESCE(c.total_income, 0) - COALESCE(l.total_income, 0)) / COALESCE(l.total_income, 1)) * 100 
-    END AS income_percentage_change,
-    
-    -- Total Expenses (Including Payroll)
-    COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0) AS current_expenses,
-    COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0) AS last_year_expenses,
-    (COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0)) - (COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0)) AS expense_difference,
-    CASE 
-        WHEN (COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0)) = 0 THEN NULL
-        ELSE (((COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0)) - (COALESCE(le.total_expenses, 0) + COALESCE(lp.total_payroll, 0))) / (COALESCE(le.total_expenses, 1) + COALESCE(lp.total_payroll, 1))) * 100 
-    END AS expense_percentage_change,
-
-    -- Separate Payroll Expense Columns
-    COALESCE(cp.total_payroll, 0) AS current_payroll_expenses,
-    COALESCE(lp.total_payroll, 0) AS last_year_payroll_expenses
-
+    COALESCE(ce.total_expenses, 0) + COALESCE(cp.total_payroll, 0) AS current_expenses
 FROM months m
 LEFT JOIN current_year c ON m.month = c.month
-LEFT JOIN last_year l ON m.month = l.month
 LEFT JOIN current_expenses ce ON m.month = ce.month
-LEFT JOIN last_expenses le ON m.month = le.month
 LEFT JOIN current_payroll cp ON m.month = cp.month
-LEFT JOIN last_payroll lp ON m.month = lp.month
-ORDER BY m.month ASC;
-";
+ORDER BY m.month ASC;";
 
-$result_cash_flow = $connection->query($sql_income_expenses);
+$result = $connection->query($sql_income_expenses);
 
+// Fetch data from MySQL
 $cash_flow_data = [];
-$forecast_data = []; // New array for forecast data
-
-$forecast_months = 6; // Forecast for next 6 months
-$last_actual_month = end($cash_flow_data)['month'] ?? date('Y-m');
-
-// Fetch actual cash flow data from the database
-if ($result_cash_flow->num_rows > 0) {
-    while ($row = $result_cash_flow->fetch_assoc()) {
-        $cash_flow_data[] = [
-            'month' => $row['month'],
-            'current_income' => $row['current_income'],
-            'last_year_income' => $row['last_year_income'],
-            'income_difference' => $row['income_difference'],
-            'income_percentage_change' => $row['income_percentage_change'] !== null ? number_format($row['income_percentage_change'], 2) . '%' : 'N/A',
-
-            'current_expenses' => $row['current_expenses'],
-            'last_year_expenses' => $row['last_year_expenses'],
-            'expense_difference' => $row['expense_difference'],
-            'expense_percentage_change' => $row['expense_percentage_change'] !== null ? number_format($row['expense_percentage_change'], 2) . '%' : 'N/A',
-
-            'current_payroll_expenses' => $row['current_payroll_expenses'],
-            'last_year_payroll_expenses' => $row['last_year_payroll_expenses'],
-        ];
-    }
-    // Get the last actual recorded month
-    $last_actual_month = end($cash_flow_data)['month'] ?? date('Y-m');
-} else {
-    echo "No data found.";
-}
-
-// Generate Forecast Data Separately
-for ($i = 1; $i <= $forecast_months; $i++) {
-    $forecast_month = date('Y-m', strtotime("+$i months", strtotime($last_actual_month)));
-
-    // Simple forecast using last year’s percentage change
-    $last_year_income = end($cash_flow_data)['last_year_income'] ?? 0;
-    $current_income = end($cash_flow_data)['current_income'] ?? 0;
-    $income_growth_rate = ($last_year_income > 0) ? ($current_income - $last_year_income) / $last_year_income : 0;
-    $forecast_income = $current_income + ($current_income * $income_growth_rate);
-
-    $last_year_expenses = end($cash_flow_data)['last_year_expenses'] ?? 0;
-    $current_expenses = end($cash_flow_data)['current_expenses'] ?? 0;
-    $expense_growth_rate = ($last_year_expenses > 0) ? ($current_expenses - $last_year_expenses) / $last_year_expenses : 0;
-    $forecast_expenses = $current_expenses + ($current_expenses * $expense_growth_rate);
-
-    $forecast_data[] = [
-        'month' => $forecast_month,
-        'current_income' => round($forecast_income, 2),
-        'current_expenses' => round($forecast_expenses, 2),
-        'is_forecast' => true
+while ($row = $result->fetch_assoc()) {
+    $cash_flow_data[] = [
+        'month' => $row['month'],
+        'income' => (float) $row['current_income'],
+        'expenses' => (float) $row['current_expenses']
     ];
 }
 
-// Merge forecast data into cash flow data for full dataset
+// Debugging: Print cash flow data before calling Python
+if (empty($cash_flow_data)) {
+    die("Error: No income/expenses data retrieved.");
+}
+
+// Encode data and pass it to Python script
+$input_data_encoded = base64_encode(json_encode($cash_flow_data));
+$python_path = "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python313\\python.exe";
+$script_path = "C:\\xampp\\htdocs\\Capstoneproject\\forecast.py";
+
+$forecast_output = shell_exec("$python_path $script_path " . escapeshellarg($input_data_encoded) . " 2>&1");
+
+// Debugging: Print Python script output
+if ($forecast_output === null) {
+    die("Error: Python script did not return any output.");
+}
+
+$forecast_data = json_decode($forecast_output, true);
+
+// Debugging: Print forecast output
+if ($forecast_data === null) {
+    die("Invalid JSON from Python: " . htmlspecialchars($forecast_output));
+}
+
+// Merge actual and forecasted data
 $cash_flow_data = array_merge($cash_flow_data, $forecast_data);
+
+// Pass data to JavaScript
+echo "<script>var cashFlowData = " . json_encode($cash_flow_data) . ";</script>";
 
 // Fetch total company budget from session or database
 $totalBudget = $_SESSION['totalBudget'] ?? 0;
@@ -1137,7 +1079,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
         <tr>
             <td>Income</td>
             <?php foreach (array_slice($visibleData, 0, 6) as $row) : ?>
-                <td><?php echo number_format($row['current_income'], 2); ?></td>
+                <td><?php echo "₱" .number_format($row['income'], 2); ?></td>
             <?php endforeach; ?>
         </tr>
 
@@ -1145,7 +1087,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
         <tr>
             <td>Expenses</td>
             <?php foreach (array_slice($visibleData, 0, 6) as $row) : ?>
-                <td><?php echo number_format($row['current_expenses'], 2); ?></td>
+                <td><?php echo "₱" .number_format($row['expenses'], 2); ?></td>
             <?php endforeach; ?>
         </tr>
     </tbody>
@@ -1618,106 +1560,45 @@ var taxDeductionChart = new Chart(ctx, {
 
 
 <script>
-// Function to format numbers as currency with Peso sign
 function formatCurrency(value) {
     return `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 }
 
-// Parse the PHP data into JavaScript
-var incomeExpensesData = <?php echo json_encode($cash_flow_data); ?> || [];
+// Parse data from PHP
+var cashFlowData = cashFlowData || [];
+const monthLabels = cashFlowData.map(data => data.month);
 
-if (!Array.isArray(incomeExpensesData)) {
-    incomeExpensesData = [];
-}
+// Extract actual and forecasted cash flow
+const actualCashFlow = cashFlowData.map(data => data.income - data.expenses);
+const forecastedCashFlow = cashFlowData.map(data => data.is_forecast ? data.income - data.expenses : null);
+const previousYearCashFlow = cashFlowData.map(data => data.prev_year_cashflow || null);
+const anomalies = cashFlowData.map(data => data.anomaly ? data.income - data.expenses : null);
 
-console.log(incomeExpensesData); // Debugging
-
-const monthLabels = incomeExpensesData.map(data => data.month || "No Date");
-
-// Actual Cash Flow Data (Null where forecast starts)
-const cashFlowValues = incomeExpensesData.map(data => 
-    data.is_forecast ? null : (data.current_income || 0) - (data.current_expenses || 0)
-);
-const lastYearCashFlowValues = incomeExpensesData.map(data => (data.last_year_income || 0) - (data.last_year_expenses || 0));
-
-// Forecasted Cash Flow (Extends from last actual data)
-let forecastCashFlowValues = [];
-let lastActualCashFlow = null;
-
-incomeExpensesData.forEach((data, index) => {
-    if (data.is_forecast) {
-        let forecastValue = (data.current_income || 0) - (data.current_expenses || 0);
-        forecastCashFlowValues.push(forecastValue);
-    } else {
-        lastActualCashFlow = (data.current_income || 0) - (data.current_expenses || 0);
-        forecastCashFlowValues.push(lastActualCashFlow);
+// Warning alerts for sudden cash flow drop
+cashFlowData.forEach((data, index) => {
+    if (data.anomaly) {
+        console.warn(`🚨 Alert: Sudden drop detected in ${data.month}!`);
     }
 });
 
-console.log(forecastCashFlowValues); // Debugging
-
-let warningFlags = []; // Array to store warning flags
-
-incomeExpensesData.forEach((data, index) => {
-    let currentCashFlow = (data.current_income || 0) - (data.current_expenses || 0);
-    let lastMonthCashFlow = index > 0 ? (incomeExpensesData[index - 1].current_income || 0) - (incomeExpensesData[index - 1].current_expenses || 0) : null;
-
-    if (data.is_forecast) {
-        let forecastValue = (data.current_income || 0) - (data.current_expenses || 0);
-        forecastCashFlowValues.push(forecastValue);
-        warningFlags.push(false); // No warning for forecast
-    } else {
-        forecastCashFlowValues.push(currentCashFlow);
-        
-        // Check for warning conditions
-        if (currentCashFlow < 0 || (lastMonthCashFlow && currentCashFlow <= lastMonthCashFlow * 0.5)) {
-            warningFlags.push(true); // Add warning if cash flow is negative or <= 50% of last month
-        } else {
-            warningFlags.push(false); // No warning
-        }
-    }
-});
-
-// **🟢 Updated Cash Flow Chart with Peso Symbol on Y-Axis and Tooltips**
 const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
     type: 'line',
     data: {
         labels: monthLabels,
         datasets: [
             {
-                label: 'Current Year Cash Flow',
-                data: cashFlowValues,
+                label: 'Actual Cash Flow',
+                data: actualCashFlow,
                 fill: true,
-                backgroundColor: (context) => {
-                    let index = context.dataIndex;
-                    return warningFlags[index] ? 'rgba(255, 99, 132, 0.2)' : 'rgba(10, 29, 78, 0.2)'; // Red shade for warning
-                },
-                borderColor: (context) => {
-                    let index = context.dataIndex;
-                    return warningFlags[index] ? '#ff6384' : '#0a1d4e'; // Red border for warning
-                },
+                backgroundColor: 'rgba(10, 29, 78, 0.2)',
+                borderColor: '#0a1d4e',
                 borderWidth: 2,
                 pointRadius: 3,
-                pointBackgroundColor: (context) => {
-                    let index = context.dataIndex;
-                    return warningFlags[index] ? '#ff6384' : '#30c0dd'; // Red points for warning
-                },
-                tension: 0.4
-            },
-            {
-                label: 'Last Year Cash Flow',
-                data: lastYearCashFlowValues,
-                fill: true,
-                backgroundColor: 'rgba(99, 247, 255, 0.2)',
-                borderColor: 'rgb(99, 247, 255)',
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: 'rgb(99, 247, 255)',
                 tension: 0.4
             },
             {
                 label: 'Forecasted Cash Flow',
-                data: forecastCashFlowValues,
+                data: forecastedCashFlow,
                 fill: true,
                 backgroundColor: 'rgba(0, 255, 0, 0.2)',
                 borderColor: 'rgba(0, 255, 0, 1)',
@@ -1725,6 +1606,29 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
                 borderWidth: 2,
                 pointRadius: 3,
                 pointBackgroundColor: '#00ff00',
+                tension: 0.4
+            },
+            {
+                label: 'Previous Year Cash Flow',
+                data: previousYearCashFlow,
+                fill: true,
+                backgroundColor: 'rgba(255, 165, 0, 0.2)',
+                borderColor: 'rgba(255, 165, 0, 1)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 3,
+                pointBackgroundColor: 'orange',
+                tension: 0.4
+            },
+            {
+                label: 'Anomalies (Sudden Drop)',
+                data: anomalies,
+                fill: true,
+                backgroundColor: 'rgba(255, 0, 0, 0.2)',
+                borderColor: 'red',
+                borderWidth: 2,
+                pointRadius: 6,
+                pointBackgroundColor: 'red',
                 tension: 0.4
             }
         ]
@@ -1736,18 +1640,17 @@ const cashFlowChart = new Chart(document.getElementById('cashFlowChart'), {
             tooltip: {
                 callbacks: {
                     label: function(tooltipItem) {
-                        let value = tooltipItem.raw || 0;
-                        return formatCurrency(value); // Format tooltip values with ₱
+                        return formatCurrency(tooltipItem.raw || 0);
                     }
                 }
             }
         },
         scales: {
-            y: { 
+            y: {
                 beginAtZero: true,
                 ticks: {
                     callback: function(value) {
-                        return formatCurrency(value); // Format Y-axis labels with ₱
+                        return formatCurrency(value);
                     }
                 }
             }

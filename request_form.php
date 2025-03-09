@@ -107,6 +107,9 @@ $summaryData = mysqli_fetch_assoc($summaryResult);
 $total_previous_expense = $summaryData['total_previous_expense'];
 $total_previous_budget = $summaryData['total_previous_budget'];
 
+// Calculate remaining budget
+$remaining_budget = $total_previous_budget - $total_previous_expense;
+
 // Query: Get expense breakdown per category
 $breakdownQuery = "SELECT 
                 ex.category,
@@ -257,73 +260,57 @@ if ($budget_variance <= 10) {
     border-radius: 5px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
-.budget-report {
-    background: white;
-    padding: 30px;
-    width: 100%;
-    max-width: auto;
-    margin: auto;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    border-radius: 10px;
-}
+.container1 {
+        max-width: 900px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
 
-.report-header {
-    text-align: center;
-}
+    section {
+        margin-bottom: 30px;
+    }
 
-.report-header h1 {
-    color: #0047AB;
-}
-
-hr {
-    border: 1px solid #ddd;
-    margin: 20px 0;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-
-th, td {
-    padding: 12px;
-    border: 1px solid #ddd;
-    text-align: center;
-}
-
-th {
-    background: #0047AB;
-    color: white;
-}
-
-.recommendations ul {
-    margin-top: 10px;
-}
-
-.footer {
-    text-align: center;
-    font-size: 12px;
-    margin-top: 30px;
-    color: gray;
-}
-
-@media (max-width: 768px) {
-    .budget-report {
+    table {
         width: 100%;
-        padding: 15px;
+        border-collapse: collapse;
+        margin-top: 10px;
     }
 
     th, td {
-        font-size: 12px;
+        text-align: left;
         padding: 8px;
+        border: 1px solid #BDC3C7;
     }
 
-    .recommendations ul {
-        padding-left: 15px;
+    th {
+        background-color: #ecf0f1;
     }
-}
 
+    td {
+        background-color: #ffffff;
+    }
+
+    .score {
+        background-color: #ecf0f1;
+        padding: 20px;
+        text-align: center;
+        border-radius: 8px;
+    }
+
+    .score strong {
+        font-size: 36px;
+        color: #2C3E50;
+    }
+
+    footer {
+        text-align: center;
+        margin-top: 50px;
+        font-size: 14px;
+        color: #7F8C8D;
+    }
         </style>
         
         <main>
@@ -333,43 +320,53 @@ th {
 </div>
 
 <div id="budget-utilization" class="tab-content" style="display: block;">
-    <div class="budget-report">
-        <div class="report-header">
-            <h1>Budget Summary & Performance Report</h1>
+    <div class="container1">
+        <!-- Header with Logo and Title -->
+        <img src="img/logo1.png" alt="Company Logo" style="width: 17%; margin-bottom: 20px;">
+        <section class="report-header">
+            <h2>Budget Summary & Performance Report</h2>
             <p><strong>Department:</strong> <?php echo htmlspecialchars($selected_department); ?></p>
             <p><strong>Report Date:</strong> <span id="report-date"><?php echo date("F j, Y"); ?></span></p>
-            <hr>
-        </div>
+        </section>
 
-        <div class="budget-performance">
+        <!-- Overall Budget Performance Section -->
+        <section class="budget-performance">
             <h2>Overall Budget Performance</h2>
-            <table class="summary-table">
+            <table>
                 <thead>
                     <tr>
                         <th>Total Previous Month Expenses</th>
                         <th>Total Previous Month Budget Approved</th>
+                        <th>Remaining Budget</th>
                         <th>Budget Change (%)</th>
-                        <th>Performance Score</th>
-                        <th>Approval Recommendation</th>
-                        <th>Justification</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><?php echo "₱" . number_format($total_previous_expense, 2); ?></td>
                         <td><?php echo "₱" . number_format($total_previous_budget, 2); ?></td>
+                        <td><?php echo "₱" . number_format($remaining_budget, 2); ?></td>
                         <td><?php echo number_format($budget_variance, 2) . "%"; ?></td>
-                        <td><?php echo number_format($performance_score, 2) . "%"; ?></td>
-                        <td><?php echo $approval_recommendation; ?></td>
-                        <td><?php echo $justification; ?></td>
                     </tr>
                 </tbody>
             </table>
-        </div>
+        </section>
 
-        <div class="expense-breakdown">
+        <!-- Performance Score Section -->
+        <section class="credit-score">
+            <h2>Budget Performance Score</h2>
+            <div class="score">
+                <p><strong><?php echo number_format($performance_score, 2) . "%"; ?></strong></p>
+                <p><small><?php echo $approval_recommendation; ?></small></p>
+                <br>
+                <p><?php echo $justification; ?></p>
+            </div>
+        </section>
+
+        <!-- Expense Breakdown Section -->
+        <section class="expense-breakdown">
             <h2>Expense Breakdown for Previous Month</h2>
-            <table class="breakdown-table">
+            <table>
                 <thead>
                     <tr>
                         <th>Category</th>
@@ -385,9 +382,10 @@ th {
                     <?php endforeach; ?>
                 </tbody>
             </table>
-        </div>
+        </section>
 
-        <div class="recommendations">
+        <!-- Final Decision Insights Section -->
+        <section class="recommendations">
             <h2>Final Decision Insights</h2>
             <p>Based on historical performance, budget requests are assessed with the following recommendations:</p>
             <ul>
@@ -395,15 +393,14 @@ th {
                 <li>⚠️ **Moderate increase (10-30%)** – Justification required.</li>
                 <li>❌ **High increase (>30%)** – Needs review before approval.</li>
             </ul>
-        </div>
+        </section>
 
-        <div class="footer">
-            <hr>
-            <p>Confidential Report – Generated by [Company Name]</p>
-        </div>
+        <!-- Footer Section -->
+        <footer class="footer">
+            <p>&copy; 2025 C.B. Barangay Enterprises. All rights reserved.</p>
+        </footer>
     </div>
 </div>
-
 
 <div id="request-display" class="tab-content" style="display: none;">
         <div id="request-details">
