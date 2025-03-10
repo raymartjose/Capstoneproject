@@ -148,12 +148,17 @@ $checkCOAResult = mysqli_query($connection, $checkCOAQuery);
 
 if (mysqli_num_rows($checkCOAResult) > 0) {
     // Update the balance for Accounts Receivable with aggregated pending invoices
-    $updateCOAQuery = "UPDATE chart_of_accounts SET balance = balance + '$total_amount' WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+    $updateCOAQuery = "UPDATE chart_of_accounts 
+                   SET account_code = '10301010', balance = balance + '$total_amount' 
+                   WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+
     mysqli_query($connection, $updateCOAQuery);
 } else {
     // Insert a new record for Accounts Receivable if it doesn't exist
-    $insertCOAQuery = "INSERT INTO chart_of_accounts (account_name, category, balance)
-                       VALUES ('Accounts Receivable', 'Asset', '$total_amount')";
+    $insertCOAQuery = "INSERT INTO chart_of_accounts (account_code, account_name, category, balance)
+VALUES ('10301010', 'Accounts Receivable', 'Asset', '$total_amount')
+ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)";
+
     mysqli_query($connection, $insertCOAQuery);
 }
 

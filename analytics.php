@@ -1194,21 +1194,25 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
                 while ($row = $result->fetch_assoc()) {
                     $invoices[] = $row;
                     echo "<tr class='invoice-row' 
-                data-customer-id='{$row['customer_id']}' 
-                data-invoice-id='{$row['invoice_id']}'
-                onclick='fetchTransactionHistory({$row['customer_id']})' 
-                style='cursor:pointer;' 
-                onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
-                onmouseout=\"this.style.backgroundColor='';\">
-                <td>{$row['invoice_id']}</td>
-                <td>{$row['customer_name']}</td>
-                <td>₱" . number_format($row['total_amount'], 2) . "</td>
-                <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
-            </tr>";
+                        data-customer-id='{$row['customer_id']}' 
+                        data-invoice-id='{$row['invoice_id']}'
+                        onclick='fetchTransactionHistory({$row['customer_id']})' 
+                        style='cursor:pointer;' 
+                        onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
+                        onmouseout=\"this.style.backgroundColor='';\">
+                        <td>{$row['invoice_id']}</td>
+                        <td>{$row['customer_name']}</td>
+                        <td>₱" . number_format($row['total_amount'], 2) . "</td>
+                        <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
+                    </tr>";
                 }
             } else {
                 echo "<tr><td colspan='4' style='text-align: center;'>No paid invoices</td></tr>";
             }
+            
+            // Encode invoices as JSON for JavaScript
+            $jsonInvoices = json_encode($invoices);
+            echo "<script>const invoices = $jsonInvoices;</script>";
             ?>
         </tbody>
     </table>
@@ -1243,7 +1247,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
                         AND due_date < CURDATE()";
     $connection->query($updateStatusSql);
 
-    $limit = 5; // Invoices per page
+    $limit = 10; // Invoices per page
     $page = isset($_GET['page']) ? $_GET['page'] : 1;
     $offset = ($page - 1) * $limit;
 
@@ -1913,45 +1917,64 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const invoices = <?php echo $jsonInvoices; ?>;
-        const rowsPerPage = 5;
-        let currentPage = 1;
+document.addEventListener("DOMContentLoaded", function () {
+    const invoices = <?php echo json_encode($invoices); ?>;
+    const rowsPerPage = 5;
+    let currentPage = 1;
+    let totalPages = Math.ceil(invoices.length / rowsPerPage);
 
-        function renderTable(page) {
-            const tableBody = document.getElementById("invoiceTableBody");
-            tableBody.innerHTML = "";
+    console.log("Invoices Data:", invoices);
+    console.log("Total Invoices:", invoices.length);
+    console.log("Total Pages:", totalPages);
 
-            const start = (page - 1) * rowsPerPage;
-            const end = start + rowsPerPage;
-            const paginatedItems = invoices.slice(start, end);
+    function renderTable(page) {
+        console.log("Rendering page:", page);
+        const tableBody = document.getElementById("invoiceTableBody");
+        tableBody.innerHTML = "";
 
-            paginatedItems.forEach(row => {
-                tableBody.innerHTML += `
-                    <tr>
-                        <td>${row.invoice_id}</td>
-                        <td>${row.customer_name}</td>
-                        <td>₱${parseFloat(row.total_amount).toLocaleString()}</td>
-                        <td>${row.paid_date}</td>
-                    </tr>
-                `;
-            });
+        const start = (page - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const paginatedItems = invoices.slice(start, end);
 
-            document.getElementById("pageNumber").innerText = page;
-            document.getElementById("prevBtn").disabled = (page === 1);
-            document.getElementById("nextBtn").disabled = (end >= invoices.length);
+        paginatedItems.forEach(row => {
+            tableBody.innerHTML += `
+                <tr class='invoice-row' 
+                    data-customer-id='${row.customer_id}' 
+                    data-invoice-id='${row.invoice_id}'
+                    onclick='fetchTransactionHistory(${row.customer_id})' 
+                    style='cursor:pointer;' 
+                    onmouseover="this.style.backgroundColor='#f1b0b7';" 
+                    onmouseout="this.style.backgroundColor='';">
+                    <td>${row.invoice_id}</td>
+                    <td>${row.customer_name}</td>
+                    <td>₱${parseFloat(row.total_amount).toLocaleString()}</td>
+                    <td>${new Date(row.payment_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById("pageNumber").innerText = page;
+        document.getElementById("prevBtn").disabled = (page === 1);
+        document.getElementById("nextBtn").disabled = (page >= totalPages);
+    }
+
+    window.changePage = function (direction) {
+        console.log("Button clicked, changing page by:", direction);
+
+        let newPage = currentPage + direction;
+
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentPage = newPage;
+            console.log("New Page:", currentPage);
+            renderTable(currentPage);
+        } else {
+            console.log("Page change prevented. Current Page:", currentPage);
         }
+    };
 
-        window.changePage = function (direction) {
-            const newPage = currentPage + direction;
-            if (newPage > 0 && newPage <= Math.ceil(invoices.length / rowsPerPage)) {
-                currentPage = newPage;
-                renderTable(currentPage);
-            }
-        };
+    renderTable(currentPage);
+});
 
-        renderTable(currentPage);
-    });
 </script>
 
 <script>
