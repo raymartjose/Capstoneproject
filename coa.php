@@ -322,8 +322,13 @@ $user_role = $_SESSION['role_display'];  // User role from session
     $expenses_row = mysqli_fetch_assoc($expenses_result);
     $total_expenses = $expenses_row['total_expenses'] ?? 0;
 
+    $cogsQuery = "SELECT SUM(total_cogs) AS amount FROM cogs";
+$cogsResult = mysqli_query($connection, $cogsQuery);
+$cogsRow = mysqli_fetch_assoc($cogsResult);
+$cogs = $cogsRow['amount'] ?? 0;
+
     // Compute updated Cash balance
-    $updated_cash_balance = $total_income - $total_salaries - $total_expenses;
+    $updated_cash_balance = $total_income - $total_salaries - $total_expenses - $cogs;
 
     // Fetch chart_of_accounts data
     $query = "SELECT id, account_code, account_name, category, balance FROM chart_of_accounts";

@@ -740,7 +740,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
     gap: 10px;
 }
 .kpi-card {
-    background: #0a1d4e;
+    background: linear-gradient(135deg, #0a1d4e, #003080);
     color: white;
     padding: 10px;
     border-radius: 8px;

@@ -102,6 +102,22 @@ if ($expensesRow && isset($expensesRow['total_expenses'])) {
     $totalExpenses = $expensesRow['total_expenses'];
 }
 
+$month = isset($_GET['month']) ? $_GET['month'] : date('m'); // Get month from filter or default to current month
+$year = isset($_GET['year']) ? $_GET['year'] : date('Y');   // Get year from filter or default to current year
+
+// Query to fetch COGS for the selected month and year
+$cogsQuery = "SELECT SUM(total_cogs) AS amount 
+              FROM cogs 
+              WHERE MONTH(created_at) = ? AND YEAR(created_at) = ?";
+
+$cogsStmt = $connection->prepare($cogsQuery);
+$cogsStmt->bind_param("ii", $currentMonth, $currentYear);
+$cogsStmt->execute();
+$cogsResult = $cogsStmt->get_result();
+$cogsRow = $cogsResult->fetch_assoc();
+$cogs = $cogsRow['amount'] ?? 0;
+
+
 // Fetch net pay from payroll table
 $payrollQuery = "SELECT SUM(net_pay) AS total_netpay 
                  FROM payroll 
@@ -118,7 +134,7 @@ $totalNetPay = $payrollRow['total_netpay'] ?? 0;
 $totalExpenses += $totalNetPay;
 
 // Calculate net income after tax
-$netIncome = $total_income - $totalExpenses;
+$netIncome = $total_income - $totalExpenses - $cogs;
 
 // Fetch income vs expenses data
 $sql_income_expenses = "WITH months AS (
@@ -748,7 +764,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
     gap: 10px;
 }
 .kpi-card {
-    background: #0a1d4e;
+    background: linear-gradient(135deg, #0a1d4e, #003080);
     color: white;
     padding: 10px;
     border-radius: 8px;
@@ -1218,10 +1234,10 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
     </table>
 
     <!-- Pagination -->
-    <div id="pagination" style="text-align: center; margin-top: 10px;">
-        <button onclick="changePage(-1)" id="prevBtn" style="background: none; border: none; font-size: 18px; cursor: pointer;">⬅</button>
-        <span id="pageNumber" style="font-weight: bold; margin: 0 10px;">1</span>
-        <button onclick="changePage(1)" id="nextBtn" style="background: none; border: none; font-size: 18px; cursor: pointer;">➡</button>
+    <div id="pagination1" style="text-align: center; margin-top: 10px;">
+        <button onclick="changePage(-1)" id="prevBtn1" style="background: none; border: none; font-size: 18px; cursor: pointer;">⬅</button>
+        <span id="pageNumber1" style="font-weight: bold; margin: 0 10px;">1</span>
+        <button onclick="changePage(1)" id="nextBtn1" style="background: none; border: none; font-size: 18px; cursor: pointer;">➡</button>
     </div>
 </div>
         </div>
@@ -1953,9 +1969,9 @@ document.addEventListener("DOMContentLoaded", function () {
             `;
         });
 
-        document.getElementById("pageNumber").innerText = page;
-        document.getElementById("prevBtn").disabled = (page === 1);
-        document.getElementById("nextBtn").disabled = (page >= totalPages);
+        document.getElementById("pageNumber1").innerText = page;
+        document.getElementById("prevBtn1").disabled = (page === 1);
+        document.getElementById("nextBtn1").disabled = (page >= totalPages);
     }
 
     window.changePage = function (direction) {
