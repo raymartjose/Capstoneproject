@@ -189,174 +189,144 @@ $operatingExpenses += $salaries;
 $netIncome = $grossProfit - $operatingExpenses;
 ?>
 
+
 <style>
 #calendar-container {
-    max-width: auto;
+    max-width: 100%;
     padding: 30px;
     background: #fff;
     border-radius: 15px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    transition: max-height 0.5s ease;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; /* Ensure equal spacing */
+    table-layout: fixed;
 }
 
 th, td {
-
-    height: 80px;
+    height: 100px; /* Increased height */
     text-align: center;
     vertical-align: middle;
     border: 1px solid #ddd;
+    font-size: 18px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    position: relative;
+    cursor: pointer;
 }
 
 th {
-    background-color: #f1f1f1;
-    font-weight: bold;
-    padding: 10px;
+    background-color: #0a1d4e;
     text-transform: uppercase;
+    font-weight: bold;
+    padding: 15px;
+    color: #fff;
 }
 
 td {
     background-color: #fff;
-    font-size: 16px;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s ease;
-    padding: 5px;
+    padding: 10px;
 }
 
 td:hover {
-    background-color: #e9e9e9;
+    background-color: #f0f0f0;
+    transform: scale(1.05);
 }
 
 td.weekend {
-    background-color: #f9f9f9;
-    color: #888;
+    background-color: #fdf1f1;
+    color: #b30000;
 }
 
 td.current-day {
-    background-color: #4CAF50;
-    color: white;
+    background-color: #0a1d4e !important;
+    color: white !important;
     font-weight: bold;
-    border-radius: 50%;
+    border-radius: 10px;
 }
+
+/* Expense & Sales Display */
+.sales-expense {
+    font-size: 14px;
+    text-align: center;
+    margin-top: 5px;
+}
+
+.sales {
+    color: #0a1d4e;
+}
+
+.expense {
+    color: red;
+}
+
 
 .sales-summary {
     text-align: center;
     padding: 20px;
-    background: #ed6978;
+    background: linear-gradient(135deg, #0a1d4e, #003080);
     color: #fff;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-}
-
-/* Tooltip for income display */
-.tooltip {
-    position: absolute;
-    top: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(0, 0, 0, 0.75);
-    color: white;
-    padding: 5px;
-    border-radius: 5px;
-    visibility: hidden;
-}
-
-td:hover .tooltip {
-    visibility: visible;
-}
-
-.sales-chart {
-    width: 100%;
-    height: 300px;
-    margin-top: 30px;
-    text-align: center;
-}
-
-
-.customer-summary {
-    margin: 30px auto;
-    padding: 20px;
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    text-align: center;
-    max-width: 90%;
-
-}
-
-.chart-summary-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap; /* Ensures responsiveness */
-    gap: 20px;
-    margin-top: 30px;
-}
-
-
-
-.customer-summary h3 {
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-
-.customer-table {
-    width: 100%;
-    border-collapse: collapse;
+    font-family: 'Arial', sans-serif;
     margin-bottom: 20px;
 }
 
-.customer-table th, .customer-table td {
-    border: 1px solid #ed6978;
-    padding: 10px;
-    text-align: center;
-    height: 50px;
+.sales-summary h3 {
+    font-size: 22px;
+    margin-bottom: 10px;
+    font-weight: bold;
 }
 
-.customer-table th {
-    background-color: #ed6978;
+.sales-summary p {
+    font-size: 18px;
+    margin: 0;
 }
 
-.customer-table tr:nth-child(even) {
-    background-color: #f9f9f9;
+.sales-summary strong {
+    font-weight: bold;
+    color: #fff;
 }
 
-.customer-table tr:hover {
-    background-color: #e1e8ff;
-    transition: background 0.3s ease;
-}
+/* Calendar Navigation */
 .calendar-navigation {
-    text-align: center;
-    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
 }
 
 .calendar-navigation a {
     display: inline-block;
     padding: 10px 15px;
-    margin: 0 10px;
+    font-size: 16px;
+    font-weight: bold;
     text-decoration: none;
     color: white;
-    background-color: #ed6978;
-    border-radius: 5px;
-    transition: background 0.3s ease;
+    background: linear-gradient(135deg, #0a1d4e, #003080);
+    border-radius: 8px;
+    transition: background 0.3s ease, transform 0.2s ease;
 }
 
 .calendar-navigation a:hover {
-    background-color: #c44f5d;
+    background: linear-gradient(135deg, #0a1d4e, #003080);
+    transform: translateY(-2px);
 }
 
 .calendar-navigation span {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
+    color: #333;
 }
 
+
 </style>
+
+
 
 
     <input type="checkbox" id="nav-toggle">
@@ -716,7 +686,7 @@ td:hover .tooltip {
 
 /* Table Headers */
 #state th {
-    background: #0a1d4e; /* Light gray like Excel */
+    background: linear-gradient(135deg, #0a1d4e, #003080);; /* Light gray like Excel */
     color: #fff;
     font-size: 13px;
     font-weight: bold;
@@ -939,58 +909,81 @@ new Chart(ctx, {
 
     </script>
 
-
-
 <div id="report" class="tab-content" style="display: none;">
-        <div id="calendar-container">
-        <div class="sales-summary">
+
+<div id="calendar-container">
+    <div class="sales-summary">
         <h3>Sales Summary for <?php echo date("F Y", strtotime($currentMonth)); ?></h3>
         <p>Sales Completed: <strong>₱<?php echo number_format(array_sum($actualIncome), 2); ?></strong> | Sales Plan: ₱<?php echo number_format($totalGoal, 2); ?></p>
     </div>
 
-    <!-- Navigation for Calendar -->
+    <!-- Calendar Navigation -->
     <div class="calendar-navigation">
-    <a href="?month=<?php echo $prevMonth; ?>&year=<?php echo $prevYear; ?>" class="prev-month">« Previous</a>
-<span><?php echo date("F Y", strtotime($currentMonth)); ?></span>
-<a href="?month=<?php echo $nextMonth; ?>&year=<?php echo $nextYear; ?>" class="next-month">Next »</a>
-
+        <a href="?month=<?php echo $prevMonth; ?>&year=<?php echo $prevYear; ?>" class="prev-month">« Previous</a>
+        <span><?php echo date("F Y", strtotime($currentMonth)); ?></span>
+        <a href="?month=<?php echo $nextMonth; ?>&year=<?php echo $nextYear; ?>" class="next-month">Next »</a>
     </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sun</th>
-                        <th>Mon</th>
-                        <th>Tue</th>
-                        <th>Wed</th>
-                        <th>Thu</th>
-                        <th>Fri</th>
-                        <th>Sat</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
+
+    <table>
+        <thead>
+            <tr>
+                <th>Sun</th>
+                <th>Mon</th>
+                <th>Tue</th>
+                <th>Wed</th>
+                <th>Thu</th>
+                <th>Fri</th>
+                <th>Sat</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+            $queryExpenses = "SELECT DATE(expense_date) as date, SUM(amount) as total_expense 
+                              FROM employee_expenses 
+                              WHERE MONTH(expense_date) = $month AND YEAR(expense_date) = $year
+                              GROUP BY date";
+
+            $resultExpenses = mysqli_query($connection, $queryExpenses);
+            $actualExpenses = [];
+
+            while ($row = mysqli_fetch_assoc($resultExpenses)) {
+                $actualExpenses[$row['date']] = $row['total_expense'];
+            }
+
             $currentDay = 1;
             $totalRows = ceil(($daysInMonth + $firstDayOfMonth) / 7);
-            
+            $today = date("Y-m-d");
+
             for ($row = 0; $row < $totalRows; $row++) {
                 echo '<tr>';
-                
+
                 for ($col = 0; $col < 7; $col++) {
                     if ($row == 0 && $col < $firstDayOfMonth) {
                         echo '<td></td>';
                     } elseif ($currentDay <= $daysInMonth) {
                         $currentDate = sprintf("%04d-%02d-%02d", $year, $month, $currentDay);
-                        $currentClass = '';
-                        $incomeDisplay = '';
+                        $incomeDisplay = $expenseDisplay = '';
 
+                        // Fetch and display sales
                         if (isset($actualIncome[$currentDate])) {
                             $income = $actualIncome[$currentDate];
-                            $percentage = ($totalGoal > 0) ? ($income / $totalGoal) * 100 : 0;
-                            $incomeDisplay = "<br>Sales: <small>₱" . number_format($income, 2) . "</small>";
+                            $incomeDisplay = "<div class='sales-expense sales'>Sales: ₱" . number_format($income, 2) . "</div>";
+                        }
+
+                        // Fetch and display expenses
+                        if (isset($actualExpenses[$currentDate])) {
+                            $expenses = $actualExpenses[$currentDate];
+                            $expenseDisplay = "<div class='sales-expense expense'>Expenses: ₱" . number_format($expenses, 2) . "</div>";
                         }
 
                         $weekendClass = ($col == 0 || $col == 6) ? ' weekend' : '';
-                        echo "<td class='$weekendClass' $currentClass>$currentDay $incomeDisplay</td>";
+                        $todayClass = ($currentDate == $today) ? ' current-day' : '';
+
+                        echo "<td class='$weekendClass $todayClass' onclick='fetchInvoices(\"$currentDate\")'>
+                                <strong>$currentDay</strong>
+                                $incomeDisplay
+                                $expenseDisplay
+                              </td>";
 
                         $currentDay++;
                     } else {
@@ -1000,109 +993,188 @@ new Chart(ctx, {
                 echo '</tr>';
             }
             ?>
-                </tbody>
-            </table>
+        </tbody>
+    </table>
 
-            
-
-            
-        </div>
-        <div class="chart-summary-container">
-    <!-- Payment Method Income Breakdown Chart (Pie Chart) -->
-    <div class="sales-chart">
-        <canvas id="paymentMethodChart"></canvas>
-    </div>
-
-    <!-- Customer Summary Table -->
-    <div class="customer-summary">
-        <h3>Customer Purchases Summary</h3>
-        <table class="customer-table">
-            <thead>
-                <tr>
-                    <th>Customer Name</th>
-                    <th>Email</th>
-                    <th>Total Spent (₱)</th>
-                    <th>Total Discount (₱)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while ($row = $customerResult->fetch_assoc()) { ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row['customer_name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['email']); ?></td>
-                        <td>₱<?php echo number_format($row['total_amount'], 2); ?></td>
-                        <td>₱<?php echo number_format($row['total_discount'], 2); ?></td>
-                    </tr>
-                <?php } ?>
-            </tbody>
-        </table>
-    </div>
-</div>
                 </div>
 
         </main>
     </div>
-    
-<script>
-// Prepare the payment method data for the pie chart
-const paymentLabels = <?php echo json_encode(array_keys($paymentMethods)); ?>;
-const paymentData = <?php echo json_encode(array_values($paymentMethods)); ?>;
-const ctxPayment = document.getElementById('paymentMethodChart').getContext('2d');
+    <!-- Cabinet-style Sliding Modal -->
+<!-- Modal Container -->
+<div id="invoiceModal" style="
+    position: fixed;
+    top: 0;
+    right: -700px; /* Initially hidden */
+    width: 700px;
+    height: 100%;
+    background: white;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.4);
+    padding: 20px;
+    overflow-y: auto;
+    transition: right 0.4s ease-in-out, width 0.3s ease-in-out, height 0.3s ease-in-out;
+    z-index: 1000;
+    border-radius: 10px 0 0 10px;
+    display: flex;
+    flex-direction: column;
+">
+    <!-- Header -->
+    <div style="
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    ">
+        <h3 style="margin: 0;">Transactions for <span id="selectedDate"></span></h3>
+        <div>
+            <button onclick="toggleSize()" style="
+                background: transparent;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+                margin-right: 10px;
+            " id="sizeToggle">🔳</button>
 
-const paymentMethodChart = new Chart(ctxPayment, {
-    type: 'doughnut',
-    data: {
-        labels: <?php echo json_encode(array_keys($paymentMethods)); ?>,
-        datasets: [{
-            data: <?php echo json_encode(array_values($paymentMethods)); ?>,
-            backgroundColor: [
-                '#1E88E5', // Corporate Blue
-                '#43A047', // Professional Green
-                '#FB8C00', // Orange for contrast
-                '#6D4C41', // Earthy Brown
-                '#8E24AA', // Elegant Purple
-                '#D81B60'  // Deep Pink
-            ],
-            borderColor: '#ffffff',
-            borderWidth: 2,
-            hoverOffset: 8
-        }]
-    },
-    options: {
-        responsive: true,
-        cutout: '80%',
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: {
-                    font: {
-                        size: 14,
-                        weight: 'bold'
-                    },
-                    color: '#333'
-                }
-            },
-            tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                titleColor: '#ffffff',
-                bodyColor: '#ffffff',
-                callbacks: {
-                    label: function(tooltipItem) {
-                        const value = tooltipItem.raw;
-                        const total = paymentData.reduce((a, b) => a + b, 0);
-                        const percentage = ((value / total) * 100).toFixed(2);
-                        return `₱${parseFloat(value).toLocaleString()} (${percentage}%)`;
-                    }
-                }
+            <button onclick="closeModal()" style="
+                background: transparent; 
+                border: none; 
+                font-size: 20px; 
+                cursor: pointer; 
+                color: red;
+            ">&#10006;</button>
+        </div>
+    </div>
+
+    <!-- Table Wrapper -->
+    <div style="flex-grow: 1; max-height: 85vh; overflow-y: auto;">
+        <table border="1" style="width:100%; border-collapse:collapse; text-align:left;">
+            <thead style="
+                position: sticky; 
+                top: 0; 
+                background: #f9f9f9; 
+                box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+            ">
+                <tr>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Date</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Type</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Amount</th>
+                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Description</th>
+                </tr>
+            </thead>
+            <tbody id="invoiceData" style="background: #fff;">
+                <tr><td colspan="4" style="padding: 10px; text-align:center;">No transactions found.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Buttons -->
+    <div style="margin-top: 15px;">
+        <button onclick="downloadCSV()" style="
+            width: 100%;
+            background: linear-gradient(135deg, #0a1d4e, #003080);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+            margin-bottom: 10px;
+        " onmouseover="this.style.background='linear-gradient(135deg, #0a1d4e, #003080)';" onmouseout="this.style.background='linear-gradient(135deg, #0a1d4e, #003080)';">
+            Download CSV
+        </button>
+
+    </div>
+</div>
+
+<!-- Overlay for Dimming Background -->
+<div id="overlay" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    z-index: 999;
+" onclick="closeModal()"></div>
+
+<script>
+let isMaximized = false;
+
+function fetchInvoices(date) {
+    document.getElementById('selectedDate').innerText = date;
+    document.getElementById('invoiceData').innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 10px;">Loading...</td></tr>';
+
+    fetch('fetch_transaction.php?date=' + date)
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('invoiceData').innerHTML = data;
+        });
+
+    // Slide in the modal
+    document.getElementById('invoiceModal').style.right = '0px';
+    document.getElementById('overlay').style.display = 'block';
+}
+
+function closeModal() {
+    // Slide out the modal
+    document.getElementById('invoiceModal').style.right = '-700px';
+    document.getElementById('overlay').style.display = 'none';
+}
+
+// Function to Download CSV
+function downloadCSV() {
+    let table = document.getElementById("invoiceData");
+    let rows = table.getElementsByTagName("tr");
+    let csv = "Date,Type,Amount,Description\n";
+
+    for (let i = 0; i < rows.length; i++) {
+        let cols = rows[i].getElementsByTagName("td");
+        if (cols.length > 0) {
+            let row = [];
+            for (let j = 0; j < cols.length; j++) {
+                row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
             }
-        },
-        animation: {
-            animateRotate: true,
-            animateScale: true
+            csv += row.join(",") + "\n";
         }
     }
-});
+
+    let blob = new Blob([csv], { type: "text/csv" });
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "transactions.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Toggle between minimized and maximized modal
+function toggleSize() {
+    let modal = document.getElementById('invoiceModal');
+    let toggleButton = document.getElementById('sizeToggle');
+
+    if (!isMaximized) {
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.right = '0';
+        toggleButton.innerHTML = "🔲"; // Minimize icon
+    } else {
+        modal.style.width = '700px';
+        modal.style.height = '100%';
+        modal.style.right = '0';
+        toggleButton.innerHTML = "🔳"; // Maximize icon
+    }
+
+    isMaximized = !isMaximized;
+}
 </script>
+
+
+
+
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
