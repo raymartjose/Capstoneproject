@@ -14,20 +14,67 @@
 include "user_fetch.php";
 include "fetch_users.php";
 session_start();  // Start the session
+include('assets/databases/dbconfig.php');
+
+$timeout_duration = 600;
+
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout_duration)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?timeout=1");
+    exit();
+}
+$_SESSION['last_activity'] = time();
+
+// Restrict access if not logged in
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");  // Redirect to login if not logged in
+    header("Location: login.php");
     exit();
 }
 
+// Check if session token matches the one stored in the database
+$sql = "SELECT session_token FROM users WHERE id = ?";
+$stmt = $connection->prepare($sql);
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$stmt->bind_result($stored_token);
+$stmt->fetch();
+$stmt->close();
 
-$user_name = $_SESSION['name'];  // User name from session
-$user_role = $_SESSION['role_display'];  // User role from session
+if ($_SESSION['session_token'] !== $stored_token) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?session_expired=1");
+    exit();
+}
+
+$user_name = $_SESSION['name'];
+$user_role = $_SESSION['role'];
 
 // Retrieve error message if any
 $error_message = isset($_SESSION['error_message']) ? $_SESSION['error_message'] : '';
 // Clear error message after displaying
 unset($_SESSION['error_message']);
 
+
+include('assets/databases/dbconfig.php');
+
+// Fetch Finance department names
+$financeDepartments = [];
+$financeEmployees = [];
+
+$deptQuery = "SELECT DISTINCT department FROM employees WHERE department = 'Finance Department'";
+$deptResult = $connection->query($deptQuery);
+while ($row = $deptResult->fetch_assoc()) {
+    $financeDepartments[] = $row['department'];
+}
+
+// Fetch employees in Finance department
+$empQuery = "SELECT id, name, email, phone FROM employees WHERE department = 'Finance Department'";
+$empResult = $connection->query($empQuery);
+while ($row = $empResult->fetch_assoc()) {
+    $financeEmployees[] = $row;
+}
 
 ?>
 
@@ -299,22 +346,47 @@ unset($_SESSION['error_message']);
 <!--Modal-->
 
 <!--Add User Modal-->
-    <div id="addUserModal" class="modal">
+<div id="addUserModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
         <h3>Add New User</h3>
-       
+
         <div class="error-message" style="display: none; color: red;"></div>
-  
+
         <form action="add_users.php" method="POST">
-            <div class="form-group">
-                <label for="name">Full Name</label>
-                <input type="text" id="name" name="name" placeholder="Enter Full Name" required>
+        <div class="form-group">
+                <label for="department">Department (Finance Only)</label>
+                <select id="department" name="department" required>
+                    <?php foreach ($financeDepartments as $dept): ?>
+                        <option value="<?= $dept ?>"><?= $dept ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="Enter Email" required>
-            </div>
+    <label for="name">Select Employee</label>
+    <select id="name" name="name" required onchange="fillEmployeeDetails()">
+        <option value="">Select Employee</option>
+        <?php foreach ($financeEmployees as $employee): ?>
+            <option value="<?= $employee['name'] ?>" 
+                    data-email="<?= $employee['email'] ?>" 
+                    data-phone="<?= $employee['phone'] ?>">
+                <?= $employee['name'] ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" placeholder="Enter Email" required>
+</div>
+
+<div class="form-group">
+    <label for="phone">Phone #</label>
+    <input type="text" id="phone" name="phone" placeholder="Enter Phone Number" required>
+</div>
+
+
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" placeholder="Enter Password" required>
@@ -327,6 +399,7 @@ unset($_SESSION['error_message']);
                     <option value="super_admin">Super Admin</option>
                 </select>
             </div>
+            
             <button type="submit" class="btn">Add User</button>
         </form>
     </div>
@@ -729,6 +802,19 @@ document.addEventListener("DOMContentLoaded", function() {
     fetchNotifications();
 });
 </script>
+<script>
+function fillEmployeeDetails() {
+    var select = document.getElementById("name"); // Ensure this ID matches your dropdown
+    var selectedOption = select.options[select.selectedIndex];
 
+    if (selectedOption.value) {
+        document.getElementById("email").value = selectedOption.getAttribute("data-email") || "";
+        document.getElementById("phone").value = selectedOption.getAttribute("data-phone") || "";
+    } else {
+        document.getElementById("email").value = "";
+        document.getElementById("phone").value = "";
+    }
+}
+</script>
 </body>
 </html>

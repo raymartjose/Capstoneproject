@@ -12,15 +12,43 @@
 <body>
 
 <?php
-include "assets/databases/dbconfig.php";
-session_start();  // Start the session
+session_start();
+include('assets/databases/dbconfig.php');
+
+$timeout_duration = 600;
+
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout_duration)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?timeout=1");
+    exit();
+}
+$_SESSION['last_activity'] = time();
+
+// Restrict access if not logged in
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");  // Redirect to login if not logged in
+    header("Location: login.php");
     exit();
 }
 
-$user_name = $_SESSION['name'];  // User name from session
-$user_role = $_SESSION['role_display'];  // User role from session
+// Check if session token matches the one stored in the database
+$sql = "SELECT session_token FROM users WHERE id = ?";
+$stmt = $connection->prepare($sql);
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$stmt->bind_result($stored_token);
+$stmt->fetch();
+$stmt->close();
+
+if ($_SESSION['session_token'] !== $stored_token) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?session_expired=1");
+    exit();
+}
+
+$user_name = $_SESSION['name'];
+$user_role = $_SESSION['role'];
 
 $currentMonth = isset($_GET['month']) ? $_GET['month'] : date('m');
 $currentYear = isset($_GET['year']) ? $_GET['year'] : date('Y');
@@ -1107,7 +1135,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
 
     <p>Used: <?= number_format($budgetUsage, 2); ?>% | Remaining: <?= number_format($remainingBudget, 2); ?>%</p>
     <button class="update-budget-btn" onclick="openUpdateBudgetModal()">Update Budget</button>
-    <button class="budget-report-btn" onclick="redirectToBudgetReport()">Expense Budget</button>
+    <button class="budget-report-btn" onclick="redirectToBudgetReport()">Budget Utilization</button>
 </div>
 
 <!-- Monthly Income Goal Meter -->

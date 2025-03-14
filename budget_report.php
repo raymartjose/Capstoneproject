@@ -1,8 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-    <?php
-    session_start();
-    ?>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1">
@@ -16,15 +13,43 @@
 <body>
 
 <?php
+session_start();
 include('assets/databases/dbconfig.php');
 
+$timeout_duration = 600;
+
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout_duration)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?timeout=1");
+    exit();
+}
+$_SESSION['last_activity'] = time();
+
+// Restrict access if not logged in
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");  // Redirect to login if not logged in
+    header("Location: login.php");
     exit();
 }
 
-$user_name = $_SESSION['name'];  // User name from session
-$user_role = $_SESSION['role_display'];  // User role from session
+// Check if session token matches the one stored in the database
+$sql = "SELECT session_token FROM users WHERE id = ?";
+$stmt = $connection->prepare($sql);
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$stmt->bind_result($stored_token);
+$stmt->fetch();
+$stmt->close();
+
+if ($_SESSION['session_token'] !== $stored_token) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?session_expired=1");
+    exit();
+}
+
+$user_name = $_SESSION['name'];
+$user_role = $_SESSION['role'];
 
 // Get current month and year
 $currentMonth = isset($_GET['month']) ? $_GET['month'] : date('m');
@@ -138,7 +163,7 @@ $remainingBudget = max(0, 100 - $budgetUsage);
         </li>
         <li>
                 <a href="index.php"><span class="las la-file-invoice"></span>
-                <span>Invoice</span></a>
+                <span>Payroll</span></a>
             </li>
             <li>
             <a href="add_user.php"><span class="las la-users"></span>
@@ -160,7 +185,7 @@ $remainingBudget = max(0, 100 - $budgetUsage);
                 <label for="nav-toggle">
                     <span class="las la-bars"></span>
                 </label>
-                Dashboard
+                Budget Utilization
                 </h2>
                 </div>
                 
@@ -362,6 +387,90 @@ $remainingBudget = max(0, 100 - $budgetUsage);
     color: #fff;
 }
 
+/* Modal Styles */
+#addExpenseModal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+    overflow: auto;
+}
+
+/* Modal Content Box */
+#addExpenseModal .modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 40%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Close Button */
+#addExpenseModal .close {
+    color: #333;
+    float: right;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#addExpenseModal .close:hover {
+    color: #d9534f;
+}
+
+/* Form Styling */
+#addExpenseModal .form-group {
+    margin-bottom: 15px;
+}
+
+#addExpenseModal .form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+#addExpenseModal .form-group input,
+#addExpenseModal .form-group select,
+#addExpenseModal .form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+/* Submit Button */
+#addExpenseModal .btn-primary {
+    background-color: #0a1d4e;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#addExpenseModal .btn-primary:hover {
+    background-color: #082046;
+}
+
+/* Fade-in Animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 
         </style>
@@ -393,6 +502,75 @@ $remainingBudget = max(0, 100 - $budgetUsage);
                 </div>
             </div>
         </div>
+
+        <div id="addExpenseModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeExpenseModal()">&times;</span>
+        <h3>Add New Expense</h3>
+        <form action="add_expense.php" method="POST">
+            <div class="form-group">
+                <label for="category">Category</label>
+                <select id="category" name="category" required>
+                    <option value="">Select a category</option>
+                    <?php
+                    $query = "SELECT id, name FROM expense_categories ORDER BY name";
+                    $result = $connection->query($query);
+                    while ($row = $result->fetch_assoc()) {
+                        echo '<option value="' . htmlspecialchars($row['name']) . '">' . htmlspecialchars($row['name']) . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="department">Department</label>
+                <select id="department" name="department" required onchange="fetchEmployees()">
+                    <option value="">Select a department</option>
+                    <?php
+                    $deptQuery = "SELECT DISTINCT department FROM employees ORDER BY department";
+                    $result = $connection->query($deptQuery);
+                    while ($row = $result->fetch_assoc()) {
+                        echo '<option value="' . htmlspecialchars($row['department']) . '">' . htmlspecialchars($row['department']) . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="employee">Employee Name</label>
+                <select id="employee" name="employee" required>
+                    <option value="">Select an employee</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="amount">Amount</label>
+                <input type="number" id="amount" name="amount" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="expense_date">Date</label>
+                <input type="date" id="expense_date" name="expense_date" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Expense</button>
+        </form>
+    </div>
+</div>
+
+
+
+<script>
+    function openExpenseModal() {
+        document.getElementById("addExpenseModal").style.display = "block";
+    }
+    function closeExpenseModal() {
+        document.getElementById("addExpenseModal").style.display = "none";
+    }
+</script>
+
         
         <main>
 
@@ -434,6 +612,7 @@ $remainingBudget = max(0, 100 - $budgetUsage);
 
     <!-- Download Buttons on the Right -->
     <div class="download-buttons">
+    <button onclick="openExpenseModal()" class="btn btn-success">Add Expense</button>
         <button id="downloadCSV" class="btn btn-primary1">Download CSV</button>
     </div>
 </div>
@@ -736,6 +915,29 @@ document.addEventListener("DOMContentLoaded", function() {
         console.error("Modal or trigger elements not found.");
     }
 });
+</script>
+
+<script>
+function fetchEmployees() {
+    var department = document.getElementById("department").value;
+    var employeeSelect = document.getElementById("employee");
+
+    employeeSelect.innerHTML = "<option value=''>Loading...</option>";
+
+    if (department) {
+        fetch("expense_employee.php?department=" + department)
+            .then(response => response.json())
+            .then(data => {
+                employeeSelect.innerHTML = "<option value=''>Select an employee</option>";
+                data.forEach(employee => {
+                    employeeSelect.innerHTML += `<option value="${employee.id}">${employee.name}</option>`;
+                });
+            })
+            .catch(error => console.error("Error fetching employees:", error));
+    } else {
+        employeeSelect.innerHTML = "<option value=''>Select an employee</option>";
+    }
+}
 </script>
 
 

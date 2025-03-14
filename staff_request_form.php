@@ -15,16 +15,42 @@
 
 <?php
 session_start();
-include "assets/databases/dbconfig.php";
+include('assets/databases/dbconfig.php');
 
+$timeout_duration = 600;
+
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout_duration)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?timeout=1");
+    exit();
+}
+$_SESSION['last_activity'] = time();
+
+// Restrict access if not logged in
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-$user_name = $_SESSION['name'];
-$user_role = $_SESSION['role_display'];
+// Check if session token matches the one stored in the database
+$sql = "SELECT session_token FROM users WHERE id = ?";
+$stmt = $connection->prepare($sql);
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$stmt->bind_result($stored_token);
+$stmt->fetch();
+$stmt->close();
 
+if ($_SESSION['session_token'] !== $stored_token) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php?session_expired=1");
+    exit();
+}
+
+$user_name = $_SESSION['name'];
+$user_role = $_SESSION['role'];
 
 ?>
 <?php

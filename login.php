@@ -1,3 +1,14 @@
+<?php
+session_start();
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+if (isset($_GET['timeout'])) {
+    $error_message = "Your session has expired due to inactivity. Please log in again.";
+}
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,7 +38,6 @@
 
             <!-- Display error message if any -->
             <?php
-            session_start();
             if (isset($_SESSION['error_message'])): ?>
                 <div class="error-message"><?php echo $_SESSION['error_message']; ?></div>
                 <?php unset($_SESSION['error_message']); // Clear the error message after displaying it
@@ -35,7 +45,10 @@
             ?>
 
             <!-- Login Form -->
+             
             <form action="login_process.php" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+
                 <div class="input-box">
                     <label for="username">Email</label>
                     <input type="email" id="username" name="username" required>

@@ -7,6 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];
     $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
     $role = $_POST['role'];
+    $department = $_POST['department'];
 
     $query = "SELECT * FROM users WHERE email = ?";
     $stmt = $connection->prepare($query);
@@ -17,12 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($result->num_rows > 0) {
         echo json_encode(['success' => false, 'message' => 'The email address already exists.']);
     } else {
-        $stmt = $connection->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $name, $email, $password, $role);
+        $stmt = $connection->prepare("INSERT INTO users (name, email, phone, password, role, department) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssss", $name, $email, $phone, $password, $role, $department);        
 
         if ($stmt->execute()) {
             $newUserId = $stmt->insert_id; // Get the ID of the new user
-            
+
             // Add an entry to the audit log
             $currentUserId = $_SESSION['user_id']; // Assuming logged-in user's ID is stored in the session
             $action = "Added";
@@ -31,7 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newData = json_encode([
                 'name' => $name,
                 'email' => $email,
-                'role' => $role
+                'phone' => $phone,
+                'role' => $role,
+                'department' => $department,
             ]);
 
             $auditQuery = "INSERT INTO audit_logs (user_id, action, record_type, record_id, new_data) 

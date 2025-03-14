@@ -2,74 +2,113 @@
 session_start();
 include('assets/databases/dbconfig.php');
 
-// Debugging output to ensure the script reaches this point
-error_log("Reached login_process.php");
+session_regenerate_id(true);
 
-// Check if the form is submitted
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', 1);
+ini_set('session.use_only_cookies', 1);
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Collect user input
-    $username = $_POST['username'];
-    $password = $_POST['password'];
 
-    // Create a SQL query to retrieve user by email
+    // CSRF Token validation
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF token.");
+    }
+
+    $username = filter_var($_POST['username'], FILTER_SANITIZE_EMAIL);
+    $password = $_POST['password'];
+    $ip_address = $_SERVER['REMOTE_ADDR'];
+
+    // Brute force protection variables
+    $failed_attempts_key = "failed_attempts_" . $ip_address;
+    $lockout_key = "lockout_" . $ip_address;
+
+    if (!isset($_SESSION[$failed_attempts_key])) {
+        $_SESSION[$failed_attempts_key] = 0;
+    }
+
+    if (isset($_SESSION[$lockout_key]) && $_SESSION[$lockout_key] > time()) {
+        $_SESSION['error_message'] = "Too many failed attempts. Try again later.";
+        header("Location: login.php");
+        exit();
+    }
+
     $sql = "SELECT * FROM users WHERE email = ?";
     $stmt = $connection->prepare($sql);
-    $stmt->bind_param("s", $username);  // Bind email parameter
+    $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Check if user exists
     if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();  // Fetch user data
+        $user = $result->fetch_assoc();
 
-        // Verify the password
         if (password_verify($password, $user['password'])) {
-            // Password is correct, set session variables
+            // Reset failed attempts
+            $_SESSION[$failed_attempts_key] = 0;
+
+            // Generate new session token
+            $session_token = bin2hex(random_bytes(32));
+
+            // Store session token in the database
+            $updateSession = "UPDATE users SET session_token = ? WHERE id = ?";
+            $stmtUpdate = $connection->prepare($updateSession);
+            $stmtUpdate->bind_param("si", $session_token, $user['id']);
+            $stmtUpdate->execute();
+            $stmtUpdate->close();
+
+            // Set session variables
             $_SESSION['user_id'] = $user['id'];
-            $_SESSION['name'] = $user['name'];
-            $_SESSION['role'] = $user['role'];
-
-            $roleDisplayMap = [
-                'staff' => 'Finance Staff',
+            $_SESSION['name'] = htmlspecialchars($user['name'], ENT_QUOTES, 'UTF-8');
+            
+            // Convert role values to display-friendly names
+            $role_display = [
+                'super_admin' => 'Super Admin',
                 'administrator' => 'Administrator',
-                'super_admin' => 'Super Admin'
+                'staff' => 'Finance Staff'
             ];
-            $_SESSION['role_display'] = $roleDisplayMap[$user['role']] ?? 'Unknown Role';
+            
+            $_SESSION['role'] = $role_display[$user['role']] ?? $user['role'];
+            $_SESSION['session_token'] = $session_token;
 
-            // Update the user's status to active
+            // Update user status to 'active'
             $updateStatus = "UPDATE users SET status = 'active' WHERE id = ?";
             $stmtUpdate = $connection->prepare($updateStatus);
             $stmtUpdate->bind_param("i", $user['id']);
             $stmtUpdate->execute();
             $stmtUpdate->close();
 
-            // Redirect based on role
-            if ($_SESSION['role'] == 'super_admin') {
-                // Redirect to the index page for super_admin
+            // Redirect user based on role
+            if ($user['role'] == 'super_admin') {
                 header("Location: analytics.php");
-            } elseif ($_SESSION['role'] == 'administrator') {
-                // Redirect to the administrator dashboard
+            } elseif ($user['role'] == 'administrator') {
                 header("Location: administrator_dashboard.php");
-            } elseif ($_SESSION['role'] == 'staff') {
-                // Redirect to the staff dashboard
+            } elseif ($user['role'] == 'staff') {
                 header("Location: staff_dashboard.php");
             }
-
-            exit();  // Ensure no further code runs after redirect
+            exit();
         } else {
             $_SESSION['error_message'] = "Invalid password.";
-            error_log("Incorrect password for user: " . $username);
-            header("Location: login.php");  // Redirect back to login page
+            $_SESSION[$failed_attempts_key] += 1;
+
+            if ($_SESSION[$failed_attempts_key] >= 5) {
+                $_SESSION[$lockout_key] = time() + 300; // Lock for 5 minutes
+            }
+
+            header("Location: login.php");
             exit();
         }
     } else {
         $_SESSION['error_message'] = "User not found.";
-        error_log("No user found with email: " . $username);
-        header("Location: login.php");  // Redirect back to login page
+        $_SESSION[$failed_attempts_key] += 1;
+
+        if ($_SESSION[$failed_attempts_key] >= 5) {
+            $_SESSION[$lockout_key] = time() + 300;
+        }
+
+        header("Location: login.php");
         exit();
     }
 
-    // Close the statement and connection
     $stmt->close();
     $connection->close();
 }
