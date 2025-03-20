@@ -217,141 +217,7 @@ $netIncome = $grossProfit - $operatingExpenses;
 ?>
 
 
-<style>
-#calendar-container {
-    max-width: 100%;
-    padding: 30px;
-    background: #fff;
-    border-radius: 15px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    transition: max-height 0.5s ease;
-}
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-th, td {
-    height: 100px; /* Increased height */
-    text-align: center;
-    vertical-align: middle;
-    border: 1px solid #ddd;
-    font-size: 18px;
-    font-weight: bold;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    position: relative;
-    cursor: pointer;
-}
-
-th {
-    background-color: #0a1d4e;
-    text-transform: uppercase;
-    font-weight: bold;
-    padding: 15px;
-    color: #fff;
-}
-
-td {
-    background-color: #fff;
-    padding: 10px;
-}
-
-td:hover {
-    background-color: #f0f0f0;
-    transform: scale(1.05);
-}
-
-td.weekend {
-    background-color: #fdf1f1;
-    color: #b30000;
-}
-
-td.current-day {
-    background-color: #0a1d4e !important;
-    color: white !important;
-    font-weight: bold;
-    border-radius: 10px;
-}
-
-/* Expense & Sales Display */
-.sales-expense {
-    font-size: 14px;
-    text-align: center;
-    margin-top: 5px;
-}
-
-.sales {
-    color: #0a1d4e;
-}
-
-.expense {
-    color: red;
-}
-
-
-.sales-summary {
-    text-align: center;
-    padding: 20px;
-    background: linear-gradient(135deg, #0a1d4e, #003080);
-    color: #fff;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    font-family: 'Arial', sans-serif;
-    margin-bottom: 20px;
-}
-
-.sales-summary h3 {
-    font-size: 22px;
-    margin-bottom: 10px;
-    font-weight: bold;
-}
-
-.sales-summary p {
-    font-size: 18px;
-    margin: 0;
-}
-
-.sales-summary strong {
-    font-weight: bold;
-    color: #fff;
-}
-
-/* Calendar Navigation */
-.calendar-navigation {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 20px;
-}
-
-.calendar-navigation a {
-    display: inline-block;
-    padding: 10px 15px;
-    font-size: 16px;
-    font-weight: bold;
-    text-decoration: none;
-    color: white;
-    background: linear-gradient(135deg, #0a1d4e, #003080);
-    border-radius: 8px;
-    transition: background 0.3s ease, transform 0.2s ease;
-}
-
-.calendar-navigation a:hover {
-    background: linear-gradient(135deg, #0a1d4e, #003080);
-    transform: translateY(-2px);
-}
-
-.calendar-navigation span {
-    font-size: 20px;
-    font-weight: bold;
-    color: #333;
-}
-
-
-</style>
 
 
 
@@ -713,7 +579,7 @@ td.current-day {
 
 /* Table Headers */
 #state th {
-    background: linear-gradient(135deg, #0a1d4e, #003080);; /* Light gray like Excel */
+    background: linear-gradient(135deg, #0a1d4e, #003080); /* Light gray like Excel */
     color: #fff;
     font-size: 13px;
     font-weight: bold;
@@ -776,6 +642,51 @@ td.current-day {
         max-height: 200px; /* Slightly higher for mobile */
     }
 }
+#filterForm {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 10px;
+    justify-content: flex-end; /* Aligns the form to the right */
+}
+
+#filterForm label {
+    font-weight: 600;
+    color: #333;
+}
+
+#filterForm select {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+    background: #fff;
+    cursor: pointer;
+}
+
+#filterForm select:focus {
+    border-color: #0a1d4e;
+    outline: none;
+}
+
+#filterForm button {
+    background: #0a1d4e;
+    color: #fff;
+    border: none;
+    padding: 7px 15px;
+    font-size: 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#filterForm button:hover {
+    background: #0056b3;
+}
 
 </style>
         <main>
@@ -787,6 +698,33 @@ td.current-day {
             </div>
 
 <div id="statement" class="tab-content" style="display: block;">
+
+<form id="filterForm">
+    <label for="month">Month:</label>
+    <select name="month" id="month">
+        <?php for ($m = 1; $m <= 12; $m++): ?>
+            <option value="<?php echo $m; ?>" <?php echo ($m == $month) ? 'selected' : ''; ?>>
+                <?php echo date("F", mktime(0, 0, 0, $m, 1)); ?>
+            </option>
+        <?php endfor; ?>
+    </select>
+
+    <label for="year">Year:</label>
+    <select name="year" id="year">
+        <?php for ($y = date("Y"); $y >= date("Y") - 5; $y--): ?>
+            <option value="<?php echo $y; ?>" <?php echo ($y == $year) ? 'selected' : ''; ?>>
+                <?php echo $y; ?>
+            </option>
+        <?php endfor; ?>
+    </select>
+
+    <button type="submit">Filter</button>
+    <button type="button" id="downloadBtn1">Download</button>
+</form>
+
+
+
+
 <div class="dashboard-container">
 
 
@@ -812,7 +750,7 @@ td.current-day {
         <div class="chart-table-container">
         <div class="table-container">
     <table id="state">
-            <tr><th>profit & loss</th><th>Amount (₱)</th></tr>
+            <tr><th>Profit & Loss</th><th>Amount (₱)</th></tr>
             <tr><td>Total Revenue</td><td><?php echo number_format($totalIncome, 2); ?></td></tr>
             <tr><td colspan="2" class="highlight">Cost of Goods Sold (COGS) Breakdown</td>
             <?php foreach ($cogsBreakdown as $cogsItem): ?>
@@ -937,267 +875,293 @@ new Chart(ctx, {
     </script>
 
 <div id="report" class="tab-content" style="display: none;">
-
-<div id="calendar-container">
-    <div class="sales-summary">
-        <h3>Sales Summary for <?php echo date("F Y", strtotime($currentMonth)); ?></h3>
-        <p>Sales Completed: <strong>₱<?php echo number_format(array_sum($actualIncome), 2); ?></strong> | Sales Plan: ₱<?php echo number_format($totalGoal, 2); ?></p>
+<div class="filters-container">
+    <div class="report-label">
+        <?php
+            $fromDate = isset($_GET['fromDate']) ? $_GET['fromDate'] : '...';
+            $toDate = isset($_GET['toDate']) ? $_GET['toDate'] : '...';
+            $reportType = isset($_GET['reportType']) ? $_GET['reportType'] : 'Income';
+            echo "From $fromDate to $toDate - Report: $reportType";
+        ?>
     </div>
 
-    <!-- Calendar Navigation -->
-    <div class="calendar-navigation">
-        <a href="?month=<?php echo $prevMonth; ?>&year=<?php echo $prevYear; ?>" class="prev-month">« Previous</a>
-        <span><?php echo date("F Y", strtotime($currentMonth)); ?></span>
-        <a href="?month=<?php echo $nextMonth; ?>&year=<?php echo $nextYear; ?>" class="next-month">Next »</a>
-    </div>
+    <div class="filters">
+        <form method="GET" action="">
+            <label for="reportType">Select Report:</label>
+            <select id="reportType" name="reportType" onchange="this.form.submit()">
+                <option value="Income" <?php if(isset($_GET['reportType']) && $_GET['reportType'] == 'Income') echo 'selected'; ?>>Income</option>
+                <option value="Expenses" <?php if(isset($_GET['reportType']) && $_GET['reportType'] == 'Expenses') echo 'selected'; ?>>Expenses</option>
+            </select>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Sun</th>
-                <th>Mon</th>
-                <th>Tue</th>
-                <th>Wed</th>
-                <th>Thu</th>
-                <th>Fri</th>
-                <th>Sat</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php
-            $queryExpenses = "SELECT DATE(expense_date) as date, SUM(amount) as total_expense 
-                              FROM employee_expenses 
-                              WHERE MONTH(expense_date) = $month AND YEAR(expense_date) = $year
-                              GROUP BY date";
-
-            $resultExpenses = mysqli_query($connection, $queryExpenses);
-            $actualExpenses = [];
-
-            while ($row = mysqli_fetch_assoc($resultExpenses)) {
-                $actualExpenses[$row['date']] = $row['total_expense'];
-            }
-
-            $currentDay = 1;
-            $totalRows = ceil(($daysInMonth + $firstDayOfMonth) / 7);
-            $today = date("Y-m-d");
-
-            for ($row = 0; $row < $totalRows; $row++) {
-                echo '<tr>';
-
-                for ($col = 0; $col < 7; $col++) {
-                    if ($row == 0 && $col < $firstDayOfMonth) {
-                        echo '<td></td>';
-                    } elseif ($currentDay <= $daysInMonth) {
-                        $currentDate = sprintf("%04d-%02d-%02d", $year, $month, $currentDay);
-                        $incomeDisplay = $expenseDisplay = '';
-
-                        // Fetch and display sales
-                        if (isset($actualIncome[$currentDate])) {
-                            $income = $actualIncome[$currentDate];
-                            $incomeDisplay = "<div class='sales-expense sales'>Sales: ₱" . number_format($income, 2) . "</div>";
-                        }
-
-                        // Fetch and display expenses
-                        if (isset($actualExpenses[$currentDate])) {
-                            $expenses = $actualExpenses[$currentDate];
-                            $expenseDisplay = "<div class='sales-expense expense'>Expenses: ₱" . number_format($expenses, 2) . "</div>";
-                        }
-
-                        $weekendClass = ($col == 0 || $col == 6) ? ' weekend' : '';
-                        $todayClass = ($currentDate == $today) ? ' current-day' : '';
-
-                        echo "<td class='$weekendClass $todayClass' onclick='fetchInvoices(\"$currentDate\")'>
-                                <strong>$currentDay</strong>
-                                $incomeDisplay
-                                $expenseDisplay
-                              </td>";
-
-                        $currentDay++;
-                    } else {
-                        echo '<td></td>';
-                    }
-                }
-                echo '</tr>';
-            }
-            ?>
-        </tbody>
-    </table>
-
-                </div>
-
-        </main>
-    </div>
-    <!-- Cabinet-style Sliding Modal -->
-<!-- Modal Container -->
-<div id="invoiceModal" style="
-    position: fixed;
-    top: 0;
-    right: -700px; /* Initially hidden */
-    width: 700px;
-    height: 100%;
-    background: white;
-    box-shadow: -5px 0 15px rgba(0,0,0,0.4);
-    padding: 20px;
-    overflow-y: auto;
-    transition: right 0.4s ease-in-out, width 0.3s ease-in-out, height 0.3s ease-in-out;
-    z-index: 1000;
-    border-radius: 10px 0 0 10px;
-    display: flex;
-    flex-direction: column;
-">
-    <!-- Header -->
-    <div style="
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        border-bottom: 2px solid #ddd;
-        padding-bottom: 10px;
-        margin-bottom: 10px;
-    ">
-        <h3 style="margin: 0;">Transactions for <span id="selectedDate"></span></h3>
-        <div>
-            <button onclick="toggleSize()" style="
-                background: transparent;
-                border: none;
-                font-size: 20px;
-                cursor: pointer;
-                margin-right: 10px;
-            " id="sizeToggle">🔳</button>
-
-            <button onclick="closeModal()" style="
-                background: transparent; 
-                border: none; 
-                font-size: 20px; 
-                cursor: pointer; 
-                color: red;
-            ">&#10006;</button>
-        </div>
-    </div>
-
-    <!-- Table Wrapper -->
-    <div style="flex-grow: 1; max-height: 85vh; overflow-y: auto;">
-        <table border="1" style="width:100%; border-collapse:collapse; text-align:left;">
-            <thead style="
-                position: sticky; 
-                top: 0; 
-                background: #f9f9f9; 
-                box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
-            ">
-                <tr>
-                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Date</th>
-                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Type</th>
-                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Amount</th>
-                    <th style="padding: 8px; border-bottom: 2px solid #ddd;">Description</th>
-                </tr>
-            </thead>
-            <tbody id="invoiceData" style="background: #fff;">
-                <tr><td colspan="4" style="padding: 10px; text-align:center;">No transactions found.</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Buttons -->
-    <div style="margin-top: 15px;">
-        <button onclick="downloadCSV()" style="
-            width: 100%;
-            background: linear-gradient(135deg, #0a1d4e, #003080);
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 16px;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background 0.3s ease;
-            margin-bottom: 10px;
-        " onmouseover="this.style.background='linear-gradient(135deg, #0a1d4e, #003080)';" onmouseout="this.style.background='linear-gradient(135deg, #0a1d4e, #003080)';">
-            Download CSV
-        </button>
-
+            <label for="fromDate">From:</label>
+            <input type="date" id="fromDate" name="fromDate" value="<?php echo isset($_GET['fromDate']) ? $_GET['fromDate'] : ''; ?>">
+            <label for="toDate">To:</label>
+            <input type="date" id="toDate" name="toDate" value="<?php echo isset($_GET['toDate']) ? $_GET['toDate'] : ''; ?>">
+            <button type="submit">Filter</button>
+        </form>
     </div>
 </div>
 
-<!-- Overlay for Dimming Background -->
-<div id="overlay" style="
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    z-index: 999;
-" onclick="closeModal()"></div>
+    
+<?php
+include('assets/databases/dbconfig.php');
 
+// Set default report type
+$reportType = isset($_GET['reportType']) ? $_GET['reportType'] : 'Income';
+
+// Check if date filters are set
+$fromDate = isset($_GET['fromDate']) && !empty($_GET['fromDate']) ? $_GET['fromDate'] : null;
+$toDate = isset($_GET['toDate']) && !empty($_GET['toDate']) ? $_GET['toDate'] : null;
+
+$query = "";
+if ($reportType == 'Income') {
+    $query = "SELECT 
+                  t.transaction_date AS date, 
+                  'Income' AS category, 
+                  COALESCE(c.name, 'Unknown Customer') AS customer_name, 
+                  t.description, 
+                  t.amount 
+              FROM transactions t
+              LEFT JOIN invoices i 
+                  ON t.description LIKE CONCAT('%', i.id, '%')
+              LEFT JOIN customers c 
+                  ON i.customer_id = c.id";
+    
+    if ($fromDate && $toDate) {
+        $query .= " WHERE t.transaction_date BETWEEN ? AND ?";
+    }
+} else {
+    $query = "SELECT 
+                  expense_date AS date, 
+                  'Expense' AS category, 
+                  CONCAT(category, ' - ', description) AS description, 
+                  amount 
+              FROM employee_expenses";
+    
+    if ($fromDate && $toDate) {
+        $query .= " WHERE expense_date BETWEEN ? AND ?";
+    }
+}
+
+$stmt = $connection->prepare($query);
+
+// Bind parameters only if filtering by date
+if ($fromDate && $toDate) {
+    $stmt->bind_param("ss", $fromDate, $toDate);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
+?>
+
+<table id="rep">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Category</th>
+            <th><?php echo ($reportType == 'Income') ? 'Description' : 'Description'; ?></th>
+            <th>Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+    <?php while ($row = $result->fetch_assoc()) { ?>
+        <tr>
+            <td><?php echo $row['date']; ?></td>
+            <td><?php echo $row['category']; ?></td>
+            <td><?php echo ($reportType == 'Income') ? "Payment from Customer " . $row['customer_name'] : $row['description']; ?></td>
+            <td>₱<?php echo $row['amount']; ?></td>
+        </tr>
+    <?php } ?>
+    </tbody>
+</table>
+
+<button id="downloadReport" class="download-btn">Download</button>
+   
 <script>
-let isMaximized = false;
-
-function fetchInvoices(date) {
-    document.getElementById('selectedDate').innerText = date;
-    document.getElementById('invoiceData').innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 10px;">Loading...</td></tr>';
-
-    fetch('fetch_transaction.php?date=' + date)
-        .then(response => response.text())
-        .then(data => {
-            document.getElementById('invoiceData').innerHTML = data;
-        });
-
-    // Slide in the modal
-    document.getElementById('invoiceModal').style.right = '0px';
-    document.getElementById('overlay').style.display = 'block';
-}
-
-function closeModal() {
-    // Slide out the modal
-    document.getElementById('invoiceModal').style.right = '-700px';
-    document.getElementById('overlay').style.display = 'none';
-}
-
-// Function to Download CSV
-function downloadCSV() {
-    let table = document.getElementById("invoiceData");
-    let rows = table.getElementsByTagName("tr");
-    let csv = "Date,Type,Amount,Description\n";
-
-    for (let i = 0; i < rows.length; i++) {
-        let cols = rows[i].getElementsByTagName("td");
-        if (cols.length > 0) {
-            let row = [];
-            for (let j = 0; j < cols.length; j++) {
-                row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
-            }
-            csv += row.join(",") + "\n";
+document.getElementById('downloadReport').addEventListener('click', function() {
+    let table = document.getElementById('rep');
+    let csv = [];
+    
+    // Get table headers
+    let rows = table.querySelectorAll("tr");
+    for (let row of rows) {
+        let cols = row.querySelectorAll("th, td");
+        let rowData = [];
+        for (let col of cols) {
+            rowData.push(col.innerText);
         }
+        csv.push(rowData.join(","));
     }
-
-    let blob = new Blob([csv], { type: "text/csv" });
-    let a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "transactions.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
-// Toggle between minimized and maximized modal
-function toggleSize() {
-    let modal = document.getElementById('invoiceModal');
-    let toggleButton = document.getElementById('sizeToggle');
-
-    if (!isMaximized) {
-        modal.style.width = '100vw';
-        modal.style.height = '100vh';
-        modal.style.right = '0';
-        toggleButton.innerHTML = "🔲"; // Minimize icon
-    } else {
-        modal.style.width = '700px';
-        modal.style.height = '100%';
-        modal.style.right = '0';
-        toggleButton.innerHTML = "🔳"; // Maximize icon
-    }
-
-    isMaximized = !isMaximized;
-}
+    
+    // Convert to CSV format
+    let csvContent = "data:text/csv;charset=utf-8," + csv.join("\n");
+    let encodedUri = encodeURI(csvContent);
+    
+    // Create download link
+    let link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "report.csv");
+    document.body.appendChild(link);
+    link.click();
+});
 </script>
+
+
+    <style>
+.download-btn {
+    display: block;
+    margin: 10px 0 10px auto; /* Pushes button to the right */
+    padding: 10px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+
+.download-btn:hover {
+    background-color: #218838;
+}
+
+/* Filters & Report Label Container */
+.filters-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 10px;
+}
+
+/* Report Label */
+.report-label {
+    font-size: 15px;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+}
+
+/* Filters Section */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.filters label {
+    font-weight: bold;
+}
+
+.filters select, 
+.filters input[type="date"], 
+.filters button {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.filters button {
+    background-color: #0a1d4e;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.filters button:hover {
+    background-color: #0056b3;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .filters-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filters {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .filters select,
+    .filters input,
+    .filters button {
+        width: 100%;
+    }
+}
+
+
+/* Table Styling */
+#rep {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: auto;
+}
+
+#rep th, #rep td {
+    border: 1px solid #ddd;
+    padding: 5px;
+    text-align: left;
+}
+
+#rep th {
+    background: linear-gradient(135deg, #0a1d4e, #003080); /* Light gray like Excel */
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 8px;
+    text-align: left;
+    border: 1px solid #bbb; /* Darker border for headers */
+}
+
+#rep tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+#rep tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters form {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .filters select,
+    .filters input,
+    .filters button {
+        width: 100%;
+    }
+
+    #rep th, #rep td {
+        padding: 8px;
+        font-size: 14px;
+    }
+}
+
+    </style>
+ </div>
+        </main>
+    </div>
+
 
 
 
@@ -1360,9 +1324,30 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
+
 <script>
+document.getElementById('filterForm').addEventListener('submit', function(event) {
+    event.preventDefault(); // Pigilan ang default form submission
+
+    let month = document.getElementById('month').value;
+    let year = document.getElementById('year').value;
+    
+    // Kunin ang kasalukuyang tab mula sa active button
+    let activeTab = document.querySelector('.tab-button.active').getAttribute('onclick').match(/'([^']+)'/)[1];
+
+    // I-update ang URL nang hindi nagre-refresh
+    let newUrl = '?month=' + month + '&year=' + year + '&tab=' + activeTab;
+    history.pushState({}, '', newUrl);
+    
+    // I-reload lang ang tab na gusto mo
+    location.reload();
+});
+
+// Function para panatilihin ang aktibong tab kahit mag-reload
 document.addEventListener("DOMContentLoaded", function() {
-    showTab('report'); // Set the default visible tab on page load
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab') || 'report'; // Default ay "report"
+    showTab(activeTab);
 });
 
 function showTab(tabId) {
@@ -1376,7 +1361,39 @@ function showTab(tabId) {
     });
 
     document.querySelector(`.tab-button[onclick="showTab('${tabId}')"]`).classList.add('active');
+
+    // I-update ang URL para alam ng page kung anong tab ang aktibo
+    let urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('tab', tabId);
+    history.replaceState({}, '', '?' + urlParams.toString());
 }
+
+</script>
+<script>
+document.getElementById("downloadBtn1").addEventListener("click", function() {
+    let table = document.getElementById("state");
+    let rows = table.rows;
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    for (let i = 0; i < rows.length; i++) {
+        let cols = rows[i].querySelectorAll("td, th");
+        let rowData = [];
+        
+        for (let j = 0; j < cols.length; j++) {
+            rowData.push('"' + cols[j].innerText.replace(/"/g, '""') + '"'); // Escape quotes
+        }
+        
+        csvContent += rowData.join(",") + "\n";
+    }
+
+    let encodedUri = encodeURI(csvContent);
+    let link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "profit_loss_<?php echo $year . '_' . $month; ?>.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+});
 </script>
 
 </body>

@@ -1,50 +1,39 @@
+<?php
+include('assets/databases/dbconfig.php');
+
+// Fetch paid invoices
+$sql = "SELECT i.id, c.name, i.total_amount, i.payment_date, i.payment_method 
+        FROM invoices t 
+        JOIN invoices i ON i.id = i.id 
+        JOIN customers c ON i.customer_id = c.id 
+        WHERE i.payment_status = 'Paid'";
+$result = $connection->query($sql);
+
+$paidInvoices = [];
+while ($row = $result->fetch_assoc()) {
+    $paidInvoices[] = $row;
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Income Report</title>
+    <title>Paid Invoices</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-        .report-container {
-            max-width: 800px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h2 {
-            text-align: center;
-            color: #333;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #007bff;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
+        .container { max-width: 1200px; margin: auto; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f4f4f4; }
+        canvas { max-height: 300px; }
     </style>
 </head>
 <body>
-    <div class="report-container">
-        <h2>Income Report - Paid Invoices</h2>
+    <div class="container">
+        <h2>Paid Invoices</h2>
+        <canvas id="paidInvoicesChart"></canvas>
         <table>
             <thead>
                 <tr>
@@ -52,33 +41,46 @@
                     <th>Customer Name</th>
                     <th>Total Amount</th>
                     <th>Payment Date</th>
-                    <th>Status</th>
+                    <th>Payment Method</th>
                 </tr>
             </thead>
             <tbody>
+                <?php foreach ($paidInvoices as $invoice): ?>
                 <tr>
-                    <td>INV-001</td>
-                    <td>John Doe</td>
-                    <td>$1,500</td>
-                    <td>2025-03-10</td>
-                    <td style="color: green; font-weight: bold;">Paid</td>
+                    <td><?= htmlspecialchars($invoice['id']) ?></td>
+                    <td><?= htmlspecialchars($invoice['name']) ?></td>
+                    <td>$<?= number_format($invoice['total_amount'], 2) ?></td>
+                    <td><?= htmlspecialchars($invoice['payment_date']) ?></td>
+                    <td><?= htmlspecialchars($invoice['payment_method']) ?></td>
                 </tr>
-                <tr>
-                    <td>INV-002</td>
-                    <td>Jane Smith</td>
-                    <td>$2,200</td>
-                    <td>2025-03-11</td>
-                    <td style="color: green; font-weight: bold;">Paid</td>
-                </tr>
-                <tr>
-                    <td>INV-003</td>
-                    <td>Mark Johnson</td>
-                    <td>$3,000</td>
-                    <td>2025-03-12</td>
-                    <td style="color: green; font-weight: bold;">Paid</td>
-                </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var ctx = document.getElementById('paidInvoicesChart').getContext('2d');
+            var chartData = {
+                labels: [<?php foreach ($paidInvoices as $invoice) echo "'" . $invoice['payment_date'] . "',"; ?>],
+                datasets: [{
+                    label: 'Total Paid Amount',
+                    data: [<?php foreach ($paidInvoices as $invoice) echo $invoice['total_amount'] . ","; ?>],
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            };
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        });
+    </script>
 </body>
 </html>

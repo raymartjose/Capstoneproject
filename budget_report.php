@@ -100,7 +100,7 @@ while ($row = $approvedBudgetResult->fetch_assoc()) {
 
 // Fetch expense breakdown per department
 $expenseQuery = "
-    SELECT e.name, e.department, ex.category, ex.description, ex.amount 
+    SELECT ex.expense_date, e.name, e.department, ex.category, ex.description, ex.amount 
     FROM employee_expenses ex 
     JOIN employees e ON ex.employee_id = e.employee_id 
     WHERE MONTH(ex.expense_date) = ? 
@@ -125,10 +125,14 @@ $expenseResult = $stmt->get_result();
 $totalExpenses = 0;
 $categoryExpenses = [];
 while ($row = $expenseResult->fetch_assoc()) {
+    if (!isset($row['expense_date'])) {
+        $row['expense_date'] = 'N/A'; // Prevent undefined key error
+    }
     $departments[$row['department']]['expenses'][] = $row;
     $totalExpenses += $row['amount'];
     $categoryExpenses[$row['category']] = ($categoryExpenses[$row['category']] ?? 0) + $row['amount'];
 }
+
 
 // Calculate budget usage percentage
 $budgetUsage = ($totalBudget > 0) ? ($totalApprovedBudget / $totalBudget) * 100 : 0;
@@ -193,18 +197,18 @@ $remainingBudget = max(0, 100 - $budgetUsage);
                 <div class="user-wrapper">
 
                 <span class="las la-bell" id="notification-bell" style="cursor:pointer; position:relative;">
-        <span id="overdue-count" style="
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: red;
-            color: white;
-            border-radius: 50%;
-            padding: 5px;
-            font-size: 12px;
-            display: none;">
-        </span>
+    <span id="pending-count" style="
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: red;
+        color: white;
+        border-radius: 50%;
+        padding: 5px;
+        font-size: 12px;
+        display: none;">
     </span>
+</span>
 
     <div class="user-info">
     <h4><?php echo htmlspecialchars($user_name); ?></h4>
@@ -387,92 +391,71 @@ $remainingBudget = max(0, 100 - $budgetUsage);
     color: #fff;
 }
 
-/* Modal Styles */
-#addExpenseModal {
-    display: none; /* Hidden by default */
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
-    overflow: auto;
-}
-
-/* Modal Content Box */
-#addExpenseModal .modal-content {
-    background-color: #fff;
-    margin: 10% auto;
-    padding: 20px;
-    border-radius: 8px;
-    width: 40%;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-/* Close Button */
-#addExpenseModal .close {
-    color: #333;
-    float: right;
-    font-size: 22px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-#addExpenseModal .close:hover {
-    color: #d9534f;
-}
-
-/* Form Styling */
-#addExpenseModal .form-group {
-    margin-bottom: 15px;
-}
-
-#addExpenseModal .form-group label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-#addExpenseModal .form-group input,
-#addExpenseModal .form-group select,
-#addExpenseModal .form-group textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 16px;
-}
-
-/* Submit Button */
-#addExpenseModal .btn-primary {
-    background-color: #0a1d4e;
-    color: white;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 5px;
-    font-size: 16px;
-    cursor: pointer;
-}
-
-#addExpenseModal .btn-primary:hover {
-    background-color: #082046;
-}
-
-/* Fade-in Animation */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
+.cabinet-panel {
+        position: fixed;
+        top: 0;
+        right: -40%; /* Initially hidden */
+        width: 40%;
+        height: 100%;
+        background-color: #fff;
+        box-shadow: -4px 0 10px rgba(0, 0, 0, 0.2);
+        overflow-y: auto;
+        transition: right 0.3s ease-in-out;
+        z-index: 1000;
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+
+    /* Panel Content */
+    .panel-content {
+        padding: 20px;
     }
-}
 
+    /* Close Button */
+    .close-btn {
+        font-size: 22px;
+        font-weight: bold;
+        color: #333;
+        float: right;
+        cursor: pointer;
+    }
 
+    .close-btn:hover {
+        color: #d9534f;
+    }
+
+    /* Form Styling */
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 16px;
+    }
+
+    /* Save Button */
+    .btn-primary {
+        background-color: #0a1d4e;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .btn-primary:hover {
+        background-color: #082046;
+    }
         </style>
 <!-- Change Password Modal -->
 <div id="changePasswordModal">
@@ -503,25 +486,11 @@ $remainingBudget = max(0, 100 - $budgetUsage);
             </div>
         </div>
 
-        <div id="addExpenseModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeExpenseModal()">&times;</span>
-        <h3>Add New Expense</h3>
+        <div id="addExpensePanel" class="cabinet-panel">
+    <div class="panel-content">
+        <span class="close-btn" onclick="closeExpensePanel()">&times;</span>
+        <h3>Add Expense</h3>
         <form action="add_expense.php" method="POST">
-            <div class="form-group">
-                <label for="category">Category</label>
-                <select id="category" name="category" required>
-                    <option value="">Select a category</option>
-                    <?php
-                    $query = "SELECT id, name FROM expense_categories ORDER BY name";
-                    $result = $connection->query($query);
-                    while ($row = $result->fetch_assoc()) {
-                        echo '<option value="' . htmlspecialchars($row['name']) . '">' . htmlspecialchars($row['name']) . '</option>';
-                    }
-                    ?>
-                </select>
-            </div>
-
             <div class="form-group">
                 <label for="department">Department</label>
                 <select id="department" name="department" required onchange="fetchEmployees()">
@@ -544,6 +513,20 @@ $remainingBudget = max(0, 100 - $budgetUsage);
             </div>
 
             <div class="form-group">
+                <label for="category">Category</label>
+                <select id="category" name="category" required>
+                    <option value="">Select a category</option>
+                    <?php
+                    $query = "SELECT id, name FROM expense_categories ORDER BY name";
+                    $result = $connection->query($query);
+                    while ($row = $result->fetch_assoc()) {
+                        echo '<option value="' . htmlspecialchars($row['name']) . '">' . htmlspecialchars($row['name']) . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="amount">Amount</label>
                 <input type="number" id="amount" name="amount" step="0.01" required>
             </div>
@@ -560,14 +543,13 @@ $remainingBudget = max(0, 100 - $budgetUsage);
     </div>
 </div>
 
-
-
+<!-- JavaScript -->
 <script>
-    function openExpenseModal() {
-        document.getElementById("addExpenseModal").style.display = "block";
+    function openExpensePanel() {
+        document.getElementById("addExpensePanel").style.right = "0";
     }
-    function closeExpenseModal() {
-        document.getElementById("addExpenseModal").style.display = "none";
+    function closeExpensePanel() {
+        document.getElementById("addExpensePanel").style.right = "-40%"; // Slide out
     }
 </script>
 
@@ -612,7 +594,7 @@ $remainingBudget = max(0, 100 - $budgetUsage);
 
     <!-- Download Buttons on the Right -->
     <div class="download-buttons">
-    <button onclick="openExpenseModal()" class="btn btn-success">Add Expense</button>
+    <button onclick="openExpensePanel()" class="btn btn-success">Add Expense</button>
         <button id="downloadCSV" class="btn btn-primary1">Download CSV</button>
     </div>
 </div>
@@ -653,6 +635,7 @@ $remainingBudget = max(0, 100 - $budgetUsage);
 <table border="1" width="100%" cellpadding="5" cellspacing="0">
     <thead>
         <tr style="background-color: #0a1d4e; color: white;">
+            <th>Date</th>
             <th>Employee Name</th>
             <th>Department</th>
             <th>Category</th>
@@ -666,6 +649,7 @@ $remainingBudget = max(0, 100 - $budgetUsage);
                 <?php if (!empty($data['expenses'])): ?>
                     <?php foreach ($data['expenses'] as $expense): ?>
                         <tr>
+                            <td><?= htmlspecialchars($expense['expense_date']); ?></td>
                             <td><?= htmlspecialchars($expense['name']); ?></td>
                             <td><?= htmlspecialchars($expense['department']); ?></td>
                             <td><?= htmlspecialchars($expense['category']); ?></td>
@@ -729,8 +713,9 @@ document.getElementById("downloadCSV").addEventListener("click", function () {
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const bellIcon = document.getElementById("notification-bell");
-    const overdueCount = document.getElementById("overdue-count");
+    const pendingCount = document.getElementById("pending-count");
 
+    // Create notification dropdown
     const notificationDropdown = document.createElement("div");
     notificationDropdown.id = "notification-dropdown";
     notificationDropdown.style.cssText = `
@@ -775,102 +760,68 @@ document.addEventListener("DOMContentLoaded", function() {
     bellIcon.appendChild(notificationDropdown);
 
     function timeAgo(timestamp) {
-        const now = new Date();
-        const past = new Date(timestamp);
-        const seconds = Math.floor((now - past) / 1000);
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diff = Math.floor((now - past) / 1000);
 
-        if (seconds < 60) return `${seconds} seconds ago`;
-        const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes} minutes ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours} hours ago`;
-        const days = Math.floor(hours / 24);
-        if (days < 7) return `${days} days ago`;
-        const weeks = Math.floor(days / 7);
-        if (weeks < 4) return `${weeks} weeks ago`;
-        const months = Math.floor(days / 30);
-        if (months < 12) return `${months} months ago`;
-        const years = Math.floor(days / 365);
-        return `${years} years ago`;
-    }
+    if (diff < 60) return `${diff} sec${diff !== 1 ? "s" : ""} ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} min${Math.floor(diff / 60) !== 1 ? "s" : ""} ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) !== 1 ? "s" : ""} ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) !== 1 ? "s" : ""} ago`;
+    return past.toLocaleDateString(); // Fallback to date format
+}
+
 
     function fetchNotifications() {
-        fetch('fetch_notifications.php')
-            .then(response => response.json())
-            .then(data => {
-                notificationDropdown.innerHTML = "";
-                notificationDropdown.appendChild(arrow);
-                notificationDropdown.appendChild(header);
+        fetch('super_fetch_notifications.php')
+        .then(response => response.json())
+        .then(data => {
+            notificationDropdown.innerHTML = "";
+            notificationDropdown.appendChild(arrow);
+            notificationDropdown.appendChild(header);
 
-                if (data.length > 0) {
-                    data.forEach(item => {
-                        let link = "";
-                        let statusLabel = "";
-                        let labelColor = "";
+            if (data.length > 0) {
+                data.forEach(item => {
+                    let notificationItem = document.createElement("div");
+                    notificationItem.innerHTML = `
+    <a href="request_form.php?id=${item.id}" class="notification-item" data-id="${item.id}" style="
+        text-decoration: none;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        font-size: 14px;
+    " onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='transparent'">
+        <div style="flex-grow: 1;">
+            <strong style="font-size: 15px; color: #222;">Request #${item.id}</strong><br>
+            <span style="color: #555; font-size: 14px;">${item.request_type} request from ${item.staff_name} (${item.department})</span><br>
+            <span style="
+                display: inline-block;
+                background: orange;
+                color: white;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 3px 8px;
+                border-radius: 5px;
+                margin-top: 5px;
+            ">Pending</span><br>
+            <span style="color: #777; font-size: 12px;">${timeAgo(item.created_at)}</span>
+        </div>
+    </a>
+`;
+                    notificationDropdown.appendChild(notificationItem);
+                });
 
-                        if (item.type === "invoice") {
-                            link = `invoice.php?id=${item.id}`;
-                            statusLabel = "Overdue";
-                            labelColor = "red";
-                        } else if (item.type === "request") {
-                            link = item.status === "Pending" ? `request_form.php?id=${item.id}` : `staff_update_request.php?id=${item.id}`;
-                            statusLabel = item.status;
-                            labelColor = item.status === "Pending" ? "orange" : "blue";
-                        }
-
-                        let notificationItem = document.createElement("div");
-                        notificationItem.innerHTML = `
-                            <a href="${link}" class="notification-item" data-id="${item.id}" style="
-                                text-decoration: none;
-                                color: #333;
-                                display: flex;
-                                align-items: center;
-                                gap: 10px;
-                                padding: 14px;
-                                border-bottom: 1px solid #eee;
-                                transition: background 0.2s;
-                                font-size: 14px;
-                            " onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='transparent'">
-                                <div style="flex-grow: 1;">
-                                    <strong style="font-size: 15px; color: #222;">${item.type === "invoice" ? "Invoice #" + item.id : "Request #" + item.id}</strong><br>
-                                    ${item.type === "invoice" ? `<span style="color: #555; font-size: 13px;">Customer: ${item.customer_name}</span><br>` : `<span style="color: #555; font-size: 13px;">Type: ${item.request_type}</span><br>`}
-                                    <span style="
-                                        display: inline-block;
-                                        background: ${labelColor};
-                                        color: white;
-                                        font-size: 12px;
-                                        font-weight: bold;
-                                        padding: 3px 8px;
-                                        border-radius: 5px;
-                                        margin-top: 5px;
-                                    ">${statusLabel}</span>
-                                    <br>
-                                    <span style="font-size: 12px; color: #888;">${timeAgo(item.created_at)}</span>
-                                </div>
-                            </a>
-                        `;
-                        notificationDropdown.appendChild(notificationItem);
-                    });
-
-                    document.querySelectorAll(".notification-item").forEach(item => {
-                        item.addEventListener("click", function(event) {
-                            let currentCount = parseInt(overdueCount.innerText);
-                            if (currentCount > 0) {
-                                overdueCount.innerText = currentCount - 1;
-                                if (currentCount - 1 === 0) {
-                                    overdueCount.style.display = "none";
-                                }
-                            }
-                        });
-                    });
-
-                } else {
-                    notificationDropdown.innerHTML += "<p style='text-align:center; padding: 20px; font-size: 14px; color: #555;'>No notifications</p>";
-                }
-
-                overdueCount.innerText = data.length;
-                overdueCount.style.display = data.length > 0 ? "inline-block" : "none";
-            });
+                pendingCount.innerText = data.length;
+                pendingCount.style.display = data.length > 0 ? "inline-block" : "none";
+            } else {
+                notificationDropdown.innerHTML += "<p style='text-align:center; padding: 20px; font-size: 14px; color: #555;'>No pending requests</p>";
+                pendingCount.style.display = "none";
+            }
+        });
     }
 
     bellIcon.addEventListener("click", function(event) {
@@ -887,7 +838,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     fetchNotifications();
 });
-
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {

@@ -346,15 +346,15 @@ while ($row = $empResult->fetch_assoc()) {
 <!--Modal-->
 
 <!--Add User Modal-->
-<div id="addUserModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
+<div id="addUserPanel" class="cabinet-panel">
+    <div class="cabinet-content">
+        <span class="close-btn" onclick="closeCabinetPanel()">&times;</span>
         <h3>Add New User</h3>
 
         <div class="error-message" style="display: none; color: red;"></div>
 
         <form action="add_users.php" method="POST">
-        <div class="form-group">
+            <div class="form-group">
                 <label for="department">Department (Finance Only)</label>
                 <select id="department" name="department" required>
                     <?php foreach ($financeDepartments as $dept): ?>
@@ -362,35 +362,36 @@ while ($row = $empResult->fetch_assoc()) {
                     <?php endforeach; ?>
                 </select>
             </div>
+
             <div class="form-group">
-    <label for="name">Select Employee</label>
-    <select id="name" name="name" required onchange="fillEmployeeDetails()">
-        <option value="">Select Employee</option>
-        <?php foreach ($financeEmployees as $employee): ?>
-            <option value="<?= $employee['name'] ?>" 
-                    data-email="<?= $employee['email'] ?>" 
-                    data-phone="<?= $employee['phone'] ?>">
-                <?= $employee['name'] ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-</div>
+                <label for="name">Select Employee</label>
+                <select id="name" name="name" required onchange="fillEmployeeDetails()">
+                    <option value="">Select Employee</option>
+                    <?php foreach ($financeEmployees as $employee): ?>
+                        <option value="<?= $employee['name'] ?>" 
+                                data-email="<?= $employee['email'] ?>" 
+                                data-phone="<?= $employee['phone'] ?>">
+                            <?= $employee['name'] ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
 
-<div class="form-group">
-    <label for="email">Email</label>
-    <input type="email" id="email" name="email" placeholder="Enter Email" required>
-</div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="Enter Email" required>
+            </div>
 
-<div class="form-group">
-    <label for="phone">Phone #</label>
-    <input type="text" id="phone" name="phone" placeholder="Enter Phone Number" required>
-</div>
-
+            <div class="form-group">
+                <label for="phone">Phone #</label>
+                <input type="text" id="phone" name="phone" placeholder="Enter Phone Number" required>
+            </div>
 
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" placeholder="Enter Password" required>
             </div>
+
             <div class="form-group">
                 <label for="role">Role</label>
                 <select id="role" name="role" required>
@@ -501,7 +502,7 @@ while ($row = $empResult->fetch_assoc()) {
                         <span class="las la-search"></span>
                         <input type="search" id="userSearchInput" placeholder="Search here" oninput="filterTable()" />
                     </div>
-                        <button onclick="openModal()" class="btn">Add User <span class="las la-plus"></span></button>
+                        <button onclick="openCabinetPanel()" class="open-panel-btn">Add User <span class="las la-plus"></span></button>
                     </div>
 
                     <div class="card-body">
@@ -815,6 +816,27 @@ function fillEmployeeDetails() {
         document.getElementById("phone").value = "";
     }
 }
+</script>
+
+<script>
+    function openCabinetPanel() {
+    document.getElementById("addUserPanel").classList.add("open");
+}
+
+function closeCabinetPanel() {
+    document.getElementById("addUserPanel").classList.remove("open");
+}
+
+// Auto-fill Employee Details
+function fillEmployeeDetails() {
+    var selectedEmployee = document.getElementById("name");
+    var email = selectedEmployee.options[selectedEmployee.selectedIndex].getAttribute("data-email");
+    var phone = selectedEmployee.options[selectedEmployee.selectedIndex].getAttribute("data-phone");
+
+    document.getElementById("email").value = email || "";
+    document.getElementById("phone").value = phone || "";
+}
+
 </script>
 </body>
 </html>

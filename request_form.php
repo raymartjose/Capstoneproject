@@ -267,7 +267,7 @@ if ($budget_variance <= 10) {
             .tabs {
     display: flex;
     gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .tab-button {

@@ -136,43 +136,84 @@ header h2 {
 }
 
 /* Modal overlay */
-#addUserModal {
-    display: none; /* Hidden by default */
+/* Cabinet Panel Styles */
+.cabinet-panel {
     position: fixed;
-    z-index: 1000;
-    left: 0;
     top: 0;
-    width: 100%;
+    right: -400px; /* Initially hidden */
+    width: 400px;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent background */
-    overflow: auto;
-}
-
-/* Modal content */
-#addUserModal .modal-content {
-    background-color: var(--background-white);
-    margin: 10% auto;
+    background-color: white;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+    transition: right 0.3s ease-in-out;
     padding: 20px;
-    border-radius: 10px;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    position: relative;
+    z-index: 1000;
+    overflow-y: auto;
 }
 
-/* Button styles in modal */
-#addUserModal .modal-content .btn {
+.cabinet-panel.open {
+    right: 0; /* Slide in when opened */
+}
+
+/* Close Button */
+.cabinet-content .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+/* Submit Button */
+.btn {
     background: var(--main-color);
     color: white;
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
     cursor: pointer;
+    width: 100%;
     transition: background 0.3s ease;
 }
-#addUserModal .modal-content .btn:hover {
+
+.btn:hover {
     background: #1d95c3;
 }
+
+/* Open Panel Button */
+.open-panel-btn {
+    background-color: var(--main-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.open-panel-btn:hover {
+    background-color: #1d95c3;
+}
+
 
 .recent-grid1 {
     display: block;

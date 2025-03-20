@@ -464,6 +464,32 @@ $unpaidInvoices = json_encode($invoiceData['unpaidInvoices']);
 .panel-header button:hover {
     background-color: #f0f0f0;
 }
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.tab-button {
+    background: #0a1d4e;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.tab-button.active {
+    background: #0056b3;
+}
+
+.tab-content {
+    background: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
 </style>
 
 <script>
@@ -512,13 +538,353 @@ function downloadTransactionHistory() {
 
 
         <main>
-        <div class="container">
-        
+        <div class="tabs">
+        <button class="tab-button active" onclick="showTab('invoice-display')">All Invoices</button>
+        <button class="tab-button active" onclick="showTab('AR-display')">Accounts Receivable</button>
+    <button class="tab-button" onclick="showTab('AP-display')">Accounts Payable</button>
+</div>
+<style>
+.kpi-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: left;
+    gap: 15px;
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+.chart-container1 {
+    width: 350px; /* Ensure adequate space */
+    background: #fff;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column; /* Stack title, then chart & legend */
+    align-items: flex-start; /* Align everything to the left */
+    gap: 8px; /* Space between title, chart, and legend */
+    position: relative;
+}
+
+.chart-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+    align-self: flex-start;
+}
+
+.chart-content {
+    display: flex;
+    flex-direction: row; /* Keep chart and legend side by side */
+    align-items: center;
+    gap: 12px; /* Space between chart and legend */
+}
+
+.chart-container1 canvas {
+    max-height: 120px; 
+    max-width: 120px;
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.chart-legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Align labels to the left */
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #444;
+    margin: 4px 0;
+    gap: 6px; /* Adds spacing between label and value */
+}
+
+.legend-item span:last-child {
+    font-weight: bold; /* Make the value stand out */
+}
+
+
+.color-box {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    margin-right: 6px;
+    border-radius: 3px;
+}
+
+/* Define Colors */
+.paid { background-color: #4CAF50; }
+.pending { background-color: #FF9800; }
+.overdue { background-color: #e74c3c; }
+.cash { background-color: #3498db; }
+.credit { background-color: #9b59b6; }
+.bank { background-color: #2ecc71; }
+.online { background-color: #f1c40f; }
+
+.invoice-table-container {
+        margin-top: 5px;
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    #invoiceTable1 {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #invoiceTable1 thead {
+        background: #f4f4f4;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    #invoiceTable1 th, #invoiceTable1 td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+    }
+
+    #invoiceTable1 th select {
+        padding: 5px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        cursor: pointer;
+    }
+
+/* Status Badge Styles */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    min-width: 70px;
+}
+
+/* Paid Status */
+.status-badge.paid {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+/* Pending/Unpaid Status */
+.status-badge.pending {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+/* Overdue Status */
+.status-badge.overdue {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+    .filters input, .filters select {
+        padding: 6px;
+        margin-right: 5px;
+    }
+
+</style>
+<div id="invoice-display" class="tab-content" style="display: block;">
+<div class="kpi-grid">
+    <!-- Payments Chart -->
+    <div class="chart-container1">
+        <div class="chart-title">Payments</div>
+        <div class="chart-content">
+            <canvas id="paymentsChart"></canvas>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="color-box paid"></span> Paid: <span id="paidAmount">0</span></span>
+                <span class="legend-item"><span class="color-box pending"></span> Outstanding: <span id="pendingAmount">0</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods Chart -->
+    <div class="chart-container1">
+        <div class="chart-title">Payment Methods</div>
+        <div class="chart-content">
+            <canvas id="paymentMethodChart"></canvas>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="color-box cash"></span> Cash: <span id="cashCount">0</span></span>
+                <span class="legend-item"><span class="color-box credit"></span> Credit: <span id="creditCount">0</span></span>
+                <span class="legend-item"><span class="color-box bank"></span> Bank Transfer: <span id="bankCount">0</span></span>
+                <span class="legend-item"><span class="color-box online"></span> Online: <span id="onlineCount">0</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Status Chart -->
+    <div class="chart-container1">
+        <div class="chart-title">Status</div>
+        <div class="chart-content">
+            <canvas id="invoiceStatusChart"></canvas>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="color-box pending"></span> Unpaid: <span id="pendingCount"> 0</span></span>
+                <span class="legend-item"><span class="color-box paid"></span> Paid: <span id="paidCount"> 0</span></span>
+                <span class="legend-item"><span class="color-box overdue"></span> Overdue: <span id="overdueCount"> 0</span></span>
+            </div>
+      </div>
+    </div>
+</div>
+
+<div class="filters">
+    <input type="text" id="searchName" placeholder="Search Customer..." onkeyup="filterInvoices()">
+    From
+    <input type="date" id="startDate" onchange="filterInvoices()">
+    To
+    <input type="date" id="endDate" onchange="filterInvoices()">
+    
+</div>
+
+<div class="invoice-table-container">
+    <table id="invoiceTable1">
+        <thead>
+            <tr>
+            <th style="width: 1%; white-space: nowrap;">
+                <select id="statusFilter" onchange="filterInvoices()">
+        <option value="">Status</option>
+        <option value="paid">Paid</option>
+        <option value="pending">Unpaid</option>
+        <option value="overdue">Overdue</option>
+    </select></th>
+                <th>Invoice #</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Due Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+            // Update overdue status for unpaid invoices
+            $updateStatusSql = "UPDATE invoices 
+                                SET payment_status = 'overdue' 
+                                WHERE payment_status != 'paid' 
+                                AND due_date < CURDATE()";
+            $connection->query($updateStatusSql);
+
+            // Fetch all invoices (No Pagination)
+            $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
+                           i.total_amount, i.due_date, i.payment_status 
+                    FROM invoices i
+                    INNER JOIN customers c ON i.customer_id = c.id
+                    ORDER BY i.payment_date DESC";
+
+            $result = $connection->query($sql);
+
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) {
+                    // Assign CSS class based on payment_status
+                    $statusClass = strtolower($row['payment_status']); // Convert to lowercase for consistency
+
+                    echo "<tr onclick=\"window.location.href='super_invoice.php?id=" . htmlspecialchars($row['invoice_id']). "'\" 
+                            style='cursor:pointer;' 
+                            onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
+                            onmouseout=\"this.style.backgroundColor=''\">
+                            <td><span class='status-badge $statusClass'>{$row['payment_status']}</span></td>
+                            <td>{$row['invoice_id']}</td>
+                            <td class='customer-name'>{$row['customer_name']}</td>
+                            <td>₱" . number_format($row['total_amount'], 2) . "</td>
+                            <td class='due-date'>" . date("Y-m-d", strtotime($row['due_date'])) . "</td>
+                        </tr>";
+                }
+            } else {
+                echo "<tr><td colspan='5' style='text-align: center;'>No invoices found</td></tr>";
+            }
+            ?>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function filterInvoices() {
+        let statusFilter = document.getElementById("statusFilter").value.toLowerCase();
+        let searchName = document.getElementById("searchName").value.toLowerCase();
+        let startDate = document.getElementById("startDate").value;
+        let endDate = document.getElementById("endDate").value;
+
+        let rows = document.querySelectorAll("#invoiceTable1 tbody tr");
+
+        rows.forEach(row => {
+            let statusElement = row.querySelector(".status-badge");
+            let customerElement = row.querySelector(".customer-name");
+            let dueDateElement = row.querySelector(".due-date");
+
+            if (statusElement && customerElement && dueDateElement) {
+                let status = statusElement.textContent.toLowerCase();
+                let customerName = customerElement.textContent.toLowerCase();
+                let dueDate = dueDateElement.textContent;
+
+                let statusMatch = statusFilter === "" || status.includes(statusFilter);
+                let nameMatch = searchName === "" || customerName.includes(searchName);
+                let dateMatch = (!startDate || dueDate >= startDate) && (!endDate || dueDate <= endDate);
+
+                row.style.display = (statusMatch && nameMatch && dateMatch) ? "" : "none";
+            }
+        });
+    }
+</script>
+
+
+</div>
+
+
+<div id="AR-display" class="tab-content" style="display: none;">
+<div class="kpi-cards">
+    <div class="card">
+        <h4>Total Receivable</h4>
+        <h5 id="totalAR">₱0</h5>
+    </div>
+    <div class="card">
+        <h4>Paid Invoice %</h4>
+        <h5 id="paidPercent">0%</h5>
+    </div>
+    <div class="card">
+        <h4>No. of Paid Invoices</h4>
+        <h5 id="total">0</h5>
+    </div>
+</div>
+<div class="charts-container">
+    <!-- Horizontal Bar Chart (Top 10 Unpaid Customers) -->
+    <div class="chart-box">
+        <h4>Paid invoices amount by customer (Top 10)</h4>
+        <canvas id="topPaidCustomersChart"></canvas>
+    </div>
+    
+    <!-- Pie Chart (Unpaid Customer Percentage) -->
+    <div class="chart-box pie-chart">
+    <!-- Pie Chart -->
+    <div class="pie-chart-container">
+        <canvas id="paidPieChart"></canvas>
+    </div>
+
+    <!-- Legend (Labels) -->
+    <div class="pie-chart-legend1">
+        <ul id="pieChartLegend1"></ul>
+    </div>
+</div>
+
+</div>
+   
+</div>
+<div id="AP-display" class="tab-content" style="display: none;">
 
 <!-- KPI Cards -->
 <div class="kpi-cards">
     <div class="card">
-        <h4>Total Receivables</h4>
+        <h4>Total Payable</h4>
         <h5 id="totalReceivables">₱0</h5>
     </div>
     <div class="card">
@@ -671,11 +1037,13 @@ function downloadTransactionHistory() {
     </div>
 </div>
 <br>
+<div class="container">
 <div class="chart-box1">
     <h4>Paid vs Unpaid Invoices</h4>
 <canvas id="paidUnpaidChart"></canvas>
 </div>
 </div>
+    </div>
 
     </main>
 </div>
@@ -814,6 +1182,83 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    fetch("fetch_paid_customers.php") // Adjust based on your PHP file path
+        .then(response => response.json())
+        .then(data => {
+            // Populate Bar Chart (Top 10 Unpaid Customers)
+            let ctx1 = document.getElementById("topPaidCustomersChart").getContext("2d");
+            new Chart(ctx1, {
+                type: "bar",
+                data: {
+                    labels: data.paidcustomers,
+                    datasets: [{
+                        label: "Paid Amount (₱)",
+                        data: data.paidamounts,
+                        backgroundColor: "#4767B1"
+                    }]
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Populate Pie Chart (Unpaid Customer Percentage)
+            let pieColors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#8BC34A", "#E91E63", "#009688", "#795548"];
+
+            // Initialize Pie Chart with Percentage Labels
+            let paidPieChart = new Chart(document.getElementById("paidPieChart"), {
+                type: "doughnut",
+                data: {
+                    labels: data.paidcustomers,
+                    datasets: [{
+                        data: data.paidpercentages,
+                        backgroundColor: pieColors.slice(0, data.paidcustomers.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "35%", // Adjust cutout size for doughnut effect
+                    plugins: {
+                        legend: { display: false }, // Hide default legend
+                        tooltip: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    let value = tooltipItem.raw;
+                                    return `${data.paidcustomers[tooltipItem.dataIndex]}: ${value}%`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: "#fff", // Set text color
+                            font: { weight: "bold", size: 14 }, // Customize font
+                            formatter: (value) => value + "%" // Show percentage
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels] // Enable Chart.js Data Labels plugin
+            });
+
+            // Generate Custom Legend for Pie Chart
+            let legendContainer1 = document.getElementById("pieChartLegend1");
+            legendContainer1.innerHTML = ""; // Clear before adding new
+            data.paidcustomers.forEach((label, index) => {
+                const legendItem1 = document.createElement("li");
+                legendItem1.innerHTML = `<span style="background-color: ${pieColors[index]}; width: 12px; height: 12px; display: inline-block; margin-right: 5px;"></span> ${label}`;
+                legendContainer1.appendChild(legendItem1);
+            });
+        })
+        .catch(error => console.error("Error loading chart data:", error));
+});
+</script>
+
 
 <style>
 .container {
@@ -833,7 +1278,7 @@ document.addEventListener("DOMContentLoaded", function () {
 }
 
 .card {
-    background: #0a1d4e;
+    background: linear-gradient(135deg, #0a1d4e, #003080);
     color: white;
     padding: 20px;
     border-radius: 8px;
@@ -873,7 +1318,7 @@ th, td {
 }
 
 th {
-    background: #0a1d4e;
+    background:linear-gradient(135deg, #0a1d4e, #003080);
     color: white;
     font-size: 12px;
 }
@@ -881,13 +1326,6 @@ th {
 h3 {
     font-size: 14px;
     text-align: center;
-}
-
-
-.filters {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20px;
 }
 
 .charts-container {
@@ -951,6 +1389,32 @@ h3 {
 }
 
 .pie-chart-legend span {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    margin-right: 8px;
+    border-radius: 50%;
+}
+
+.pie-chart-legend1 {
+    flex: 1;
+    max-width: 40%;
+    text-align: left;
+}
+
+.pie-chart-legend1 ul {
+    list-style: none;
+    padding: 0;
+}
+
+.pie-chart-legend1 li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.pie-chart-legend1 span {
     width: 12px;
     height: 12px;
     display: inline-block;
@@ -1196,6 +1660,35 @@ document.getElementById('updateAging').addEventListener('click', function() {
 });
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+    showTab('invoice-display'); // Set the default visible tab on page load
+});
+
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+    document.getElementById(tabId).style.display = 'block';
+
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('active');
+    });
+
+    document.querySelector(`.tab-button[onclick="showTab('${tabId}')"]`).classList.add('active');
+}
+</script>
+<script>
+function fetchKPIData1() {
+    fetch('get_kpi_paid.php')
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById("totalAR").textContent = `₱${data.totalPaid}`;
+        document.getElementById("paidPercent").textContent = `${data.paidPercent}%`;
+        document.getElementById("total").textContent = `${data.total}`;
+    })
+    .catch(error => console.error('Error fetching KPI data (Paid):', error));
+}
+
 function fetchKPIData() {
     fetch('get_kpi_data.php')
     .then(response => response.json())
@@ -1207,10 +1700,102 @@ function fetchKPIData() {
     .catch(error => console.error('Error fetching KPI data:', error));
 }
 
-// Fetch data on page load
-window.onload = fetchKPIData;
+// Ensure both functions run on page load
+window.addEventListener('load', () => {
+    fetchKPIData1();
+    fetchKPIData();
+});
 </script>
 
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    fetch("fetch_invoice_data.php")
+        .then(response => response.json())
+        .then(data => {
+            renderPaymentsChart(data.payments);
+            renderPaymentMethodChart(data.payment_methods);
+            renderInvoiceStatusChart(data.invoice_status);
 
+            // Update legend amounts
+            document.getElementById("paidAmount").textContent = `₱${data.payments.paid.toFixed(2)}`;
+            document.getElementById("pendingAmount").textContent = `₱${data.payments.pending_overdue.toFixed(2)}`;
+
+            // Update payment method counts
+            document.getElementById("cashCount").textContent = `₱${data.payment_methods.cash.amount.toFixed(2)}`;
+            document.getElementById("creditCount").textContent = `₱${data.payment_methods.credit.amount.toFixed(2)}`;
+            document.getElementById("bankCount").textContent = `₱${data.payment_methods.bank_transfer.amount.toFixed(2)}`;
+            document.getElementById("onlineCount").textContent = `₱${data.payment_methods.online.amount.toFixed(2)}`;
+
+            // Update invoice status counts
+            document.getElementById("pendingCount").textContent = data.invoice_status.pending;
+            document.getElementById("paidCount").textContent = data.invoice_status.paid;
+            document.getElementById("overdueCount").textContent = data.invoice_status.overdue;
+        })
+        .catch(error => console.error("Error fetching data:", error));
+
+    function renderPaymentsChart(data) {
+        new Chart(document.getElementById("paymentsChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Paid", "Pending & Overdue"],
+                datasets: [{
+                    data: [data.paid, data.pending_overdue],
+                    backgroundColor: ["#4CAF50", "#FF9800"]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false } // Hide chart legend since we have custom legends
+                }
+            }
+        });
+    }
+
+    function renderPaymentMethodChart(data) {
+        new Chart(document.getElementById("paymentMethodChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Cash", "Credit", "Bank Transfer", "Online"],
+                datasets: [{
+                    data: [
+                        data.cash.amount, 
+                        data.credit.amount, 
+                        data.bank_transfer.amount, 
+                        data.online.amount
+                    ],
+                    backgroundColor: ["#3498db", "#9b59b6", "#2ecc71", "#f1c40f"]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    function renderInvoiceStatusChart(data) {
+        new Chart(document.getElementById("invoiceStatusChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Unpaid", "Paid", "Overdue"],
+                datasets: [{
+                    data: [data.pending, data.paid, data.overdue],
+                    backgroundColor: ["#f39c12", "#2ecc71", "#e74c3c"]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+});
+
+</script>
 </body>
 </html>
