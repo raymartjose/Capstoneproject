@@ -625,41 +625,6 @@ function downloadTransactionHistory() {
 .bank { background-color: #2ecc71; }
 .online { background-color: #f1c40f; }
 
-.invoice-table-container {
-        margin-top: 5px;
-        background: #fff;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-        overflow-x: auto;
-    }
-
-    #invoiceTable1 {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    #invoiceTable1 thead {
-        background: #f4f4f4;
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    #invoiceTable1 th, #invoiceTable1 td {
-        padding: 10px;
-        border-bottom: 1px solid #ddd;
-        text-align: left;
-    }
-
-    #invoiceTable1 th select {
-        padding: 5px;
-        font-size: 14px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        cursor: pointer;
-    }
-
 /* Status Badge Styles */
 .status-badge {
     display: inline-block;
@@ -695,6 +660,73 @@ function downloadTransactionHistory() {
     .filters input, .filters select {
         padding: 6px;
         margin-right: 5px;
+    }
+
+    .invoice-table-container {
+        margin-top: 5px;
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    #invoiceTable1 {
+        width: 100%;
+        border-collapse: collapse;
+        border: none;
+    }
+    #invoiceTable1 th,
+#invoiceTable1 td {
+    border: none; /* Remove borders from table cells */
+    padding: 8px; /* Adjust padding for better spacing */
+    text-align: left; /* Align text properly */
+}
+
+    #invoiceTable1 thead {
+        background: #f4f4f4;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    #invoiceTable1 tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    #invoiceTable1 tbody tr:hover {
+        background-color: #e6f7ff;
+        transition: background 0.3s ease;
+    }
+
+    #invoiceTable1 th, #invoiceTable1 td {
+        padding: 10px;
+        text-align: left;
+    }
+
+    .action-dropdown {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
+    .action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #fff;
+        box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+        z-index: 1;
+        min-width: 120px;
+        text-align: center;
     }
 
 </style>
@@ -764,10 +796,12 @@ function downloadTransactionHistory() {
                 <th>Customer</th>
                 <th>Amount</th>
                 <th>Due Date</th>
+                <th>Payment Date</th>
+                <th style="width: 1%; white-space: nowrap;">Action</th>
             </tr>
         </thead>
         <tbody>
-            <?php
+        <?php
             // Update overdue status for unpaid invoices
             $updateStatusSql = "UPDATE invoices 
                                 SET payment_status = 'overdue' 
@@ -777,7 +811,7 @@ function downloadTransactionHistory() {
 
             // Fetch all invoices (No Pagination)
             $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
-                           i.total_amount, i.due_date, i.payment_status 
+                           i.total_amount, i.due_date, i.payment_date, i.payment_status 
                     FROM invoices i
                     INNER JOIN customers c ON i.customer_id = c.id
                     ORDER BY i.payment_date DESC";
@@ -789,24 +823,45 @@ function downloadTransactionHistory() {
                     // Assign CSS class based on payment_status
                     $statusClass = strtolower($row['payment_status']); // Convert to lowercase for consistency
 
-                    echo "<tr onclick=\"window.location.href='super_invoice.php?id=" . htmlspecialchars($row['invoice_id']). "'\" 
-                            style='cursor:pointer;' 
-                            onmouseover=\"this.style.backgroundColor='#f1b0b7'\" 
-                            onmouseout=\"this.style.backgroundColor=''\">
+                    echo "<tr>
                             <td><span class='status-badge $statusClass'>{$row['payment_status']}</span></td>
                             <td>{$row['invoice_id']}</td>
                             <td class='customer-name'>{$row['customer_name']}</td>
                             <td>₱" . number_format($row['total_amount'], 2) . "</td>
                             <td class='due-date'>" . date("Y-m-d", strtotime($row['due_date'])) . "</td>
-                        </tr>";
+                            <td class='pay-date'>" . (!empty($row['payment_date']) && $row['payment_date'] !== '0000-00-00' ? date("Y-m-d", strtotime($row['payment_date'])) : '-- -- --') . "</td>
+                            <td>
+                                <div class='action-dropdown'>
+                                    <button class='action-btn' onclick='toggleDropdown(this)'>▼</button>
+                                    <div class='dropdown-content'>
+                                        <a href='super_invoice.php?id=" . htmlspecialchars($row['invoice_id']) . "'>View Invoice</a>
+                                        <a href='#' onclick='fetchTransactionHistory(" . htmlspecialchars($row['customer_id']) . ")'>View History</a>
+                                    </div>
+                                </div>
+                            </td>
+                          </tr>";
                 }
             } else {
-                echo "<tr><td colspan='5' style='text-align: center;'>No invoices found</td></tr>";
+                echo "<tr><td colspan='6' style='text-align: center;'>No invoices found</td></tr>";
             }
             ?>
         </tbody>
     </table>
 </div>
+
+<script>
+    function toggleDropdown(button) {
+        var dropdown = button.nextElementSibling;
+        dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
+    }
+    document.addEventListener('click', function(event) {
+        if (!event.target.matches('.action-btn')) {
+            document.querySelectorAll('.dropdown-content').forEach(function(dropdown) {
+                dropdown.style.display = 'none';
+            });
+        }
+    });
+</script>
 
 <script>
     function filterInvoices() {
@@ -877,6 +932,14 @@ function downloadTransactionHistory() {
 </div>
 
 </div>
+<div class="container">
+<div class="chart-box1">
+    <h4>Paid Invoices</h4>
+    <canvas id="monthlyPaidInvoicesChart"></canvas>
+</div>
+
+</div>
+
    
 </div>
 <div id="AP-display" class="tab-content" style="display: none;">
@@ -1038,10 +1101,10 @@ function downloadTransactionHistory() {
 </div>
 <br>
 <div class="container">
-<div class="chart-box1">
-    <h4>Paid vs Unpaid Invoices</h4>
-<canvas id="paidUnpaidChart"></canvas>
-</div>
+    <div class="chart-box1">
+        <h4>Unpaid Invoices</h4>
+        <canvas id="monthlyUnpaidInvoicesChart"></canvas> <!-- FIXED: Updated ID -->
+    </div>
 </div>
     </div>
 
@@ -1052,33 +1115,24 @@ function downloadTransactionHistory() {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
-
 <script>
-const ctx = document.getElementById("paidUnpaidChart").getContext("2d");
+const ctxMonthlyPaid = document.getElementById("monthlyPaidInvoicesChart").getContext("2d");
 
 // Monthly labels for the chart
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Data from PHP variables
-const paidInvoices = <?php echo $paidInvoices; ?>;
-const unpaidInvoices = <?php echo $unpaidInvoices; ?>;
+// Data from PHP variables (Only Paid Invoices)
+const paidInvoicesData = <?php echo $paidInvoices; ?>;
 
-const paidUnpaidChart = new Chart(ctx, {
-    type: "bar", // Change type to "bar" for horizontal bars
+const monthlyPaidInvoicesChart = new Chart(ctxMonthlyPaid, {
+    type: "bar",
     data: {
-        labels: months, // Months on Y-axis
+        labels: months, // X-axis: Months
         datasets: [
             {
-                label: "Paid",
-                data: paidInvoices,
-                backgroundColor: "#223D7B", // Green for Paid
-                stack: 'stack1', // Group bars by stack
-            },
-            {
-                label: "Unpaid",
-                data: unpaidInvoices,
-                backgroundColor: "#B80C0C", // Red for Unpaid
-                stack: 'stack1', // Group bars by stack
+                label: "Paid Invoices",
+                data: paidInvoicesData,
+                backgroundColor: "#223D7B", // Blue for Paid
             }
         ]
     },
@@ -1086,13 +1140,8 @@ const paidUnpaidChart = new Chart(ctx, {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-            x: {
-                beginAtZero: true,
-                stacked: true, // Stack the bars
-            },
             y: {
-                beginAtZero: true,
-                stacked: true, // Stack bars vertically
+                beginAtZero: true
             }
         },
         plugins: {
@@ -1102,7 +1151,45 @@ const paidUnpaidChart = new Chart(ctx, {
         }
     }
 });
+</script>
 
+
+<script>
+const ctx = document.getElementById("monthlyUnpaidInvoicesChart").getContext("2d");
+
+// Monthly labels for the chart
+const months1 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Data from PHP variables (Only Unpaid Invoices)
+const unpaidInvoicesData = <?php echo $unpaidInvoices; ?>;
+
+const monthlyUnpaidInvoicesChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+        labels: months1, // X-axis: Months
+        datasets: [
+            {
+                label: "Unpaid Invoices",
+                data: unpaidInvoicesData,
+                backgroundColor: "#B80C0C", // Red for Unpaid
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top', // Position of the legend
+            }
+        }
+    }
+});
 </script>
 
 <script>
