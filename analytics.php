@@ -464,7 +464,7 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
             <ul class="submenu-items">
                 <li><a href="coa.php"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="balance_sheet.php"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="account_receivable.php"><span class="las la-file-invoice"></span> Invoice</a></li>
             </ul>
         </li>
         <li>
@@ -858,132 +858,6 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
     max-height: 280px;
 }
 
-/* Payment Method Legend */
-.payment-method-legend {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-left: 15px; /* Reduce margin to save space */
-}
-
-
-/* Payment Method Legend */
-.payment-method-legend {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-left: 20px;
-}
-
-.payment-method-legend div {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 8px;
-}
-
-.payment-method-legend span {
-    margin-left: 10px;
-    color: #333;
-}
-
-.payment-color-box {
-    width: 15px;
-    height: 15px;
-    border-radius: 3px;
-}
-
-.top-customer-container {
-    display: flex;
-    gap: 10px; /* Space between chart and table */
-    justify-content: space-between;
-    width: 100%;
-    margin-top: 10px;
-}
-
-.top-customer, .paid-invoices {
-    width: 50%; /* Each takes almost half the width */
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.15);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-}
-
-.customer-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: left;
-    width: 100%;
-    margin: auto;
-}
-
-.customer-wrapper h3, .paid-invoices h3 {
-    font-size: 1rem;
-    font-weight: bold;
-    color: #0a1d4e;
-    text-align: left;
-
-}
-
-/* Chart Styling */
-#customerOverviewChart {
-    width: 100% !important;
-    max-width: 100%;
-    height: auto !important;
-    max-height: 300px;
-}
-
-/* Table Styling */
-.paid-invoices table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.paid-invoices th, .paid-invoices td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-}
-
-.paid-invoices th {
-    background-color: #0a1d4e;
-    color:#fff;
-    font-size: 13px;
-}
-
-.invoice-container {
-    width: 100%;
-    margin: 10px auto;
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.all-invoices table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-}
-
-.all-invoices th, .all-invoices td {
-    padding: 5px;
-    border: 1px solid #ddd;
-    text-align: center;
-}
-
-.all-invoices th {
-    background-color: #0a1d4e;
-    color: white;
-}
-
-.invoice-row:hover {
-    background-color: #f1b0b7 !important;
-    cursor: pointer;
-}
 
 /* Pagination */
 .pagination {
@@ -1009,7 +883,21 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
     font-weight: bold;
 }
 
+.kpi-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 cards per row */
+    gap: 10px;
+    margin-top: 10px;
+}
 
+.card {
+    background: linear-gradient(135deg, #0a1d4e, #003080);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 13px;
+}
 </style>
 
 
@@ -1182,178 +1070,37 @@ $totalSpending = json_encode($customerData['spending'], JSON_HEX_TAG);
 
 <div class="payment-tax-container">
     <div class="income-expenses-container">
-        <h3>Income Breakdown by Payment Method</h3>
+        <h3>Income Overview</h3>
+        <div class="kpi-cards">
+    <div class="card">
+        <h4>Paid Invoice</h4>
+        <h5 id="paidInvoice">₱0</h5>
+    </div>
+    <div class="card">
+        <h4>Overdue</h4>
+        <h5 id="over">₱0</h5>
+    </div>
+    <div class="card">
+        <h4>Unpaid Invoice</h4>
+        <h5 id="unpaid">₱0</h5>
+    </div>
+</div>
         <div class="chart-wrapper">
-            <canvas id="paymentMethodChart"></canvas>
-            <div id="paymentMethodLegend" class="payment-method-legend"></div>
+            <canvas id="kpiChart"></canvas>
         </div>
     </div>
 
     <div class="tax-container">
         <h3>Tax Report</h3>
+        <br>
+        <br>
+        <br>
         <canvas id="taxDeductionChart" widht="100%;"></canvas>
     </div>
 </div>
 
-<div class="top-customer-container">
-    <!-- Customer Overview Chart -->
-    <div class="top-customer">
-        <div class="customer-wrapper">
-            <h3>Customer Overview</h3>
-            <canvas id="customerOverviewChart"></canvas>
-        </div>
-    </div>
 
-    <div class="paid-invoices">
-    <h3>Paid Invoices (Current Month)</h3>
-    <table id="paidInvoicesTable">
-        <thead>
-            <tr>
-                <th>Invoice ID</th>
-                <th>Customer Name</th>
-                <th>Total Amount</th>
-                <th>Paid Date</th>
-            </tr>
-        </thead>
-        <tbody id="invoiceTableBody">
-            <?php
-
-            $currentMonth = date('m');
-            $currentYear = date('Y');
-
-            $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
-                           i.total_amount, i.payment_date 
-                    FROM invoices i
-                    INNER JOIN customers c ON i.customer_id = c.id
-                    WHERE i.payment_status = 'paid' 
-                    AND MONTH(i.payment_date) = ? 
-                    AND YEAR(i.payment_date) = ?";
-
-            $stmt = $connection->prepare($sql);
-            $stmt->bind_param("ii", $currentMonth, $currentYear);
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            $invoices = [];
-
-            if ($result->num_rows > 0) {
-                while ($row = $result->fetch_assoc()) {
-                    $invoices[] = $row;
-                    echo "<tr class='invoice-row' 
-                        data-customer-id='{$row['customer_id']}' 
-                        data-invoice-id='{$row['invoice_id']}'
-                        onclick='fetchTransactionHistory({$row['customer_id']})' 
-                        style='cursor:pointer;' 
-                        onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
-                        onmouseout=\"this.style.backgroundColor='';\">
-                        <td>{$row['invoice_id']}</td>
-                        <td>{$row['customer_name']}</td>
-                        <td>₱" . number_format($row['total_amount'], 2) . "</td>
-                        <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
-                    </tr>";
-                }
-            } else {
-                echo "<tr><td colspan='4' style='text-align: center;'>No paid invoices</td></tr>";
-            }
-            
-            // Encode invoices as JSON for JavaScript
-            $jsonInvoices = json_encode($invoices);
-            echo "<script>const invoices = $jsonInvoices;</script>";
-            ?>
-        </tbody>
-    </table>
-
-    <!-- Pagination -->
-    <div id="pagination1" style="text-align: center; margin-top: 10px;">
-        <button onclick="changePage(-1)" id="prevBtn1" style="background: none; border: none; font-size: 18px; cursor: pointer;">⬅</button>
-        <span id="pageNumber1" style="font-weight: bold; margin: 0 10px;">1</span>
-        <button onclick="changePage(1)" id="nextBtn1" style="background: none; border: none; font-size: 18px; cursor: pointer;">➡</button>
-    </div>
-</div>
-        </div>
-        <div class="invoice-container">
-    <h3>All Invoices</h3>
-    <div class="all-invoices">
-        <table id="allInvoicesTable">
-            <thead>
-                <tr>
-                    <th>Invoice ID</th>
-                    <th>Customer Name</th>
-                    <th>Total Amount</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="invoiceTableBody">
-            <?php
-    // Update overdue status for unpaid invoices
-    $updateStatusSql = "UPDATE invoices 
-                        SET payment_status = 'overdue' 
-                        WHERE payment_status != 'paid' 
-                        AND due_date < CURDATE()";
-    $connection->query($updateStatusSql);
-
-    $limit = 10; // Invoices per page
-    $page = isset($_GET['page']) ? $_GET['page'] : 1;
-    $offset = ($page - 1) * $limit;
-
-    // Count total invoices for pagination
-    $countSql = "SELECT COUNT(*) AS total FROM invoices";
-    $countResult = $connection->query($countSql);
-    $totalInvoices = $countResult->fetch_assoc()['total'];
-    $totalPages = ceil($totalInvoices / $limit);
-
-    // Fetch invoices with LIMIT for pagination
-    $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
-                   i.total_amount, i.due_date, i.payment_status 
-            FROM invoices i
-            INNER JOIN customers c ON i.customer_id = c.id
-            ORDER BY i.payment_date DESC
-            LIMIT ?, ?";
     
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("ii", $offset, $limit);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            echo "<tr class='invoice-row' 
-                    data-customer-id='{$row['customer_id']}' 
-                    data-invoice-id='{$row['invoice_id']}'
-                    onclick='fetchTransactionHistory({$row['customer_id']})' 
-                    style='cursor:pointer;' 
-                    onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
-                    onmouseout=\"this.style.backgroundColor='';\">
-                    <td>{$row['invoice_id']}</td>
-                    <td>{$row['customer_name']}</td>
-                    <td>₱" . number_format($row['total_amount'], 2) . "</td>
-                    <td>" . date("M d, Y", strtotime($row['due_date'])) . "</td>
-                    <td>{$row['payment_status']}</td>
-                </tr>";
-        }
-    } else {
-        echo "<tr><td colspan='5' style='text-align: center;'>No invoices found</td></tr>";
-    }
-?>
-
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Pagination Controls -->
-    <div class="pagination">
-        <?php if ($page > 1): ?>
-            <a href="?page=<?= $page - 1 ?>" class="pagination-btn">⬅ Prev</a>
-        <?php endif; ?>
-
-        <span class="page-number">Page <?= $page ?> of <?= $totalPages ?></span>
-
-        <?php if ($page < $totalPages): ?>
-            <a href="?page=<?= $page + 1 ?>" class="pagination-btn">Next ➡</a>
-        <?php endif; ?>
-    </div>
-</div>
 
 
 
@@ -1476,72 +1223,6 @@ function redirectToBudgetReport() {
 }
 </script>
 
-<script>
-  const paymentLabels = <?php echo json_encode(array_keys($paymentMethods)); ?>;
-  const paymentData = <?php echo json_encode(array_values($paymentMethods)); ?>;
-  const ctxPayment = document.getElementById('paymentMethodChart').getContext('2d');
-
-  // Calculate total income safely
-  const totalIncome = paymentData.reduce((acc, val) => acc + parseFloat(val || 0), 0);
-
-  // Create Doughnut Chart with Percentage Inside
-  const paymentMethodChart = new Chart(ctxPayment, {
-      type: 'doughnut',
-      data: {
-          labels: paymentLabels,
-          datasets: [{
-              label: 'Total Income (₱)',
-              data: paymentData,
-              backgroundColor: ['#1E88E5', '#43A047', '#FB8C00', '#6D4C41', '#8E24AA', '#D81B60'],
-              borderColor: '#ffffff',
-              borderWidth: 2
-          }]
-      },
-      options: {
-          responsive: true,
-          cutout: '30%', // Creates a thinner ring
-          plugins: {
-              legend: {
-                  display: false // Hide default legend (we'll create a custom one)
-              },
-              tooltip: {
-                  callbacks: {
-                      label: function(tooltipItem) {
-                          const value = tooltipItem.raw;
-                          const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : "0";
-                          return `₱${parseFloat(value).toLocaleString()} (${percentage}%)`;
-                      }
-                  }
-              },
-              datalabels: {
-                  color: '#fff',
-                  font: {
-                      weight: 'bold',
-                      size: 14
-                  },
-                  formatter: function(value) {
-                      const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : "0";
-                      return percentage + '%'; // Show percentage inside chart
-                  }
-              }
-          }
-      },
-      plugins: [ChartDataLabels] // Activate DataLabels Plugin
-  });
-
-  // **💡 Styled Custom Legend**
-  const legendContainer = document.getElementById('paymentMethodLegend');
-  legendContainer.innerHTML = paymentLabels.map((label, index) => {
-      const value = paymentData[index];
-      const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : "0";
-      return `
-          <div style="display: flex; align-items: center; margin-bottom: 8px;">
-              <div class="payment-color-box" style="width: 14px; height: 14px; background-color: ${paymentMethodChart.data.datasets[0].backgroundColor[index]}; margin-right: 10px; border-radius: 50%;"></div>
-              <span>${label}: <strong>₱${parseFloat(value).toLocaleString()} (${percentage}%)</strong></span>
-          </div>
-      `;
-  }).join('');
-</script>
 
 <script>
    // Prepare the data for Chart.js
@@ -2080,6 +1761,100 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
 </script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    fetch("analytics_fetch.php")
+        .then(response => response.json())
+        .then(data => {
+            let paid = isNaN(data.paid) ? 0 : parseFloat(data.paid);
+            let overdue = isNaN(data.overdue) ? 0 : parseFloat(data.overdue);
+            let unpaid = isNaN(data.pending) ? 0 : parseFloat(data.pending);
 
+            // Update KPI Cards
+            document.getElementById("paidInvoice").textContent = `₱${paid.toLocaleString()}`;
+            document.getElementById("over").textContent = `₱${overdue.toLocaleString()}`;
+            document.getElementById("unpaid").textContent = `₱${unpaid.toLocaleString()}`;
+
+            // Ensure no duplicate months
+            const months = [...new Set(data.months)] || [];
+            const paidMonthly = data.paidMonthly || [];
+            const overdueMonthly = data.overdueMonthly || [];
+            const unpaidMonthly = data.unpaidMonthly || [];
+
+            // Debugging Data
+            console.log("Months:", months);
+            console.log("Paid Monthly Data:", paidMonthly);
+            console.log("Overdue Monthly Data:", overdueMonthly);
+            console.log("Unpaid Monthly Data:", unpaidMonthly);
+
+            // Get Chart Context
+            const ctx = document.getElementById("kpiChart").getContext("2d");
+
+            // Render Grouped Bar Chart
+            new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: "Paid",
+                            data: paidMonthly,
+                            backgroundColor: "#28a745", // Green
+                            borderColor: "#28a745",
+                            borderWidth: 1,
+                        },
+                        {
+                            label: "Overdue",
+                            data: overdueMonthly,
+                            backgroundColor: "#dc3545", // Red
+                            borderColor: "#dc3545",
+                            borderWidth: 1,
+                        },
+                        {
+                            label: "Unpaid",
+                            data: unpaidMonthly,
+                            backgroundColor: "#ffc107", // Yellow
+                            borderColor: "#ffc107",
+                            borderWidth: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: "top"
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (tooltipItem) {
+                                    return `₱${tooltipItem.raw.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: false,
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return `₱${value.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error("Error fetching KPI data:", error);
+        });
+});
+
+</script>
 </body>
 </html>

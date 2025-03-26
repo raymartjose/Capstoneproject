@@ -192,7 +192,7 @@ $unpaidInvoices = json_encode($invoiceData['unpaidInvoices']);
             <ul class="submenu-items">
                 <li><a href="coa.php"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="balance_sheet.php"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="account_receivable.php" class="active"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="account_receivable.php" class="active"><span class="las la-file-invoice"></span> Invoice</a></li>
             </ul>
         </li>
         <li>
@@ -219,7 +219,7 @@ $unpaidInvoices = json_encode($invoiceData['unpaidInvoices']);
                 <label for="nav-toggle">
                     <span class="las la-bars"></span>
                 </label>
-                Accounts Receivable
+                Invoice
                 </h2>
                 </div>
 
@@ -932,6 +932,76 @@ function downloadTransactionHistory() {
 </div>
 
 </div>
+<div class="container">
+<div class="paid-invoices">
+    <h3>Paid Invoices (Current Month)</h3>
+    <table id="paidInvoicesTable">
+        <thead>
+            <tr>
+                <th>Invoice ID</th>
+                <th>Customer Name</th>
+                <th>Total Amount</th>
+                <th>Paid Date</th>
+            </tr>
+        </thead>
+        <tbody id="invoiceTableBody">
+            <?php
+
+            $currentMonth = date('m');
+            $currentYear = date('Y');
+
+            $sql = "SELECT i.id AS invoice_id, c.id AS customer_id, c.name AS customer_name, 
+                           i.total_amount, i.payment_date 
+                    FROM invoices i
+                    INNER JOIN customers c ON i.customer_id = c.id
+                    WHERE i.payment_status = 'paid' 
+                    AND MONTH(i.payment_date) = ? 
+                    AND YEAR(i.payment_date) = ?";
+
+            $stmt = $connection->prepare($sql);
+            $stmt->bind_param("ii", $currentMonth, $currentYear);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $invoices = [];
+
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) {
+                    $invoices[] = $row;
+                    echo "<tr class='invoice-row' 
+                        data-customer-id='{$row['customer_id']}' 
+                        data-invoice-id='{$row['invoice_id']}'
+                        onclick='fetchTransactionHistory({$row['customer_id']})' 
+                        style='cursor:pointer;' 
+                        onmouseover=\"this.style.backgroundColor='#f1b0b7';\" 
+                        onmouseout=\"this.style.backgroundColor='';\">
+                        <td>{$row['invoice_id']}</td>
+                        <td>{$row['customer_name']}</td>
+                        <td>₱" . number_format($row['total_amount'], 2) . "</td>
+                        <td>" . date("M d, Y", strtotime($row['payment_date'])) . "</td>
+                    </tr>";
+                }
+            } else {
+                echo "<tr><td colspan='4' style='text-align: center;'>No paid invoices</td></tr>";
+            }
+            
+            // Encode invoices as JSON for JavaScript
+            $jsonInvoices = json_encode($invoices);
+            echo "<script>const invoices = $jsonInvoices;</script>";
+            ?>
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div id="pagination1" style="text-align: center; margin-top: 10px;">
+        <button onclick="changePage(-1)" id="prevBtn1" style="background: none; border: none; font-size: 18px; cursor: pointer;">⬅</button>
+        <span id="pageNumber1" style="font-weight: bold; margin: 0 10px;">1</span>
+        <button onclick="changePage(1)" id="nextBtn1" style="background: none; border: none; font-size: 18px; cursor: pointer;">➡</button>
+    </div>
+</div>
+        </div>
+        <br>
+
 <div class="container">
 <div class="chart-box1">
     <h4>Paid Invoices</h4>
@@ -1824,7 +1894,7 @@ window.addEventListener('load', () => {
         new Chart(document.getElementById("paymentsChart"), {
             type: "doughnut",
             data: {
-                labels: ["Paid", "Pending & Overdue"],
+                labels: ["Paid", "Outstanding"],
                 datasets: [{
                     data: [data.paid, data.pending_overdue],
                     backgroundColor: ["#4CAF50", "#FF9800"]
@@ -1884,5 +1954,54 @@ window.addEventListener('load', () => {
 });
 
 </script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    const rowsPerPage = 5; // Set number of rows per page
+    let currentPage = 1;
+
+    function displayTableRows() {
+        const tableBody = document.getElementById("invoiceTableBody");
+        const rows = tableBody.getElementsByClassName("invoice-row");
+        const totalRows = rows.length;
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+        // Hide all rows first
+        for (let i = 0; i < totalRows; i++) {
+            rows[i].style.display = "none";
+        }
+
+        // Show only the relevant rows for the current page
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        for (let i = startIndex; i < endIndex && i < totalRows; i++) {
+            rows[i].style.display = "";
+        }
+
+        // Update pagination controls
+        document.getElementById("pageNumber1").textContent = currentPage;
+        document.getElementById("prevBtn1").disabled = currentPage === 1;
+        document.getElementById("nextBtn1").disabled = currentPage === totalPages || totalRows === 0;
+    }
+
+    // Change page function
+    window.changePage = function (direction) {
+        const tableBody = document.getElementById("invoiceTableBody");
+        const totalRows = tableBody.getElementsByClassName("invoice-row").length;
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+        if (direction === 1 && currentPage < totalPages) {
+            currentPage++;
+        } else if (direction === -1 && currentPage > 1) {
+            currentPage--;
+        }
+        displayTableRows();
+    };
+
+    // Initialize table pagination
+    displayTableRows();
+});
+
+</script>
+
 </body>
 </html>

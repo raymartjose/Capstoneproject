@@ -114,7 +114,7 @@ if ($statusResult->num_rows > 0) {
             <ul class="submenu-items">
                 <li><a href="coa.php"><span class="las la-folder"></span> Chart of Accounts</a></li>
                 <li><a href="balance_sheet.php"><span class="las la-chart-line"></span> Balance Sheet</a></li>
-                <li><a href="account_receivable.php"><span class="las la-file-invoice"></span> Accounts Receivable</a></li>
+                <li><a href="account_receivable.php"><span class="las la-file-invoice"></span> Invoice</a></li>
             </ul>
         </li>
             <li>
