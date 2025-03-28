@@ -122,6 +122,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                          VALUES ('income', '$total_amount', 'Payment for Invoice #$invoice_no', NOW(), '$payment_method')";
                     mysqli_query($connection, $transactionQuery);
 
+                    // Insert or update the chart of accounts for Accounts Receivable
+$checkARQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+$checkARResult = mysqli_query($connection, $checkARQuery);
+
+if (mysqli_num_rows($checkARResult) > 0) {
+    // Update existing AR balance
+    $updateARQuery = "UPDATE chart_of_accounts 
+                      SET balance = balance + '$total_amount' 
+                      WHERE account_name = 'Accounts Receivable' 
+                      AND category = 'Asset'";
+    mysqli_query($connection, $updateARQuery);
+} else {
+    // Insert new AR entry if it doesn't exist
+    $insertARQuery = "INSERT INTO chart_of_accounts (account_code, account_name, category, balance) 
+                      VALUES ('10301010', 'Accounts Receivable', 'Asset', '$total_amount')";
+    mysqli_query($connection, $insertARQuery);
+}
+
+
                     // Mark as paid in `receivables`
                     $updateReceivableQuery = "UPDATE receivables SET current_amount = 0.00 WHERE invoice_id = '$invoice_no'";
                     mysqli_query($connection, $updateReceivableQuery);
@@ -143,20 +162,20 @@ $assetQuery = "INSERT INTO assets (asset_name, value, type)
 mysqli_query($connection, $assetQuery);
 
 // Update the chart of accounts for Accounts Receivable
-$checkCOAQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+$checkCOAQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Accounts Payable' AND category = 'Liability'";
 $checkCOAResult = mysqli_query($connection, $checkCOAQuery);
 
 if (mysqli_num_rows($checkCOAResult) > 0) {
     // Update the balance for Accounts Receivable with aggregated pending invoices
     $updateCOAQuery = "UPDATE chart_of_accounts 
-                   SET account_code = '10301010', balance = balance + '$total_amount' 
-                   WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+                   SET account_code = '20101010', balance = balance + '$total_amount' 
+                   WHERE account_name = 'Accounts Payable' AND category = 'Liability'";
 
     mysqli_query($connection, $updateCOAQuery);
 } else {
     // Insert a new record for Accounts Receivable if it doesn't exist
     $insertCOAQuery = "INSERT INTO chart_of_accounts (account_code, account_name, category, balance)
-VALUES ('10301010', 'Accounts Receivable', 'Asset', '$total_amount')
+VALUES ('20101010', 'Accounts Payable', 'Liability', '$total_amount')
 ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)";
 
     mysqli_query($connection, $insertCOAQuery);

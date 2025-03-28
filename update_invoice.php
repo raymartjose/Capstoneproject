@@ -82,7 +82,6 @@ function getInvoiceAmount($invoice_id) {
     return $total_amount;
 }
 
-// Function to update 'Accounts Receivable' balance
 // Function to update 'Accounts Receivable' and 'Cash' balance
 function updateAccountsReceivableBalance() {
     global $connection;
@@ -93,8 +92,27 @@ function updateAccountsReceivableBalance() {
     $receivablesRow = $receivablesResult->fetch_assoc();
     $totalReceivables = $receivablesRow['total_receivables'] ?? 0.00;
 
+                        // Insert or update the chart of accounts for Accounts Receivable
+$checkARQuery = "SELECT balance FROM chart_of_accounts WHERE account_name = 'Accounts Receivable' AND category = 'Asset'";
+$checkARResult = mysqli_query($connection, $checkARQuery);
+
+if (mysqli_num_rows($checkARResult) > 0) {
+    // Update existing AR balance
+    $updateARQuery = "UPDATE chart_of_accounts 
+                      SET balance = balance + '$total_amount' 
+                      WHERE account_name = 'Accounts Receivable' 
+                      AND category = 'Asset'";
+    mysqli_query($connection, $updateARQuery);
+} else {
+    // Insert new AR entry if it doesn't exist
+    $insertARQuery = "INSERT INTO chart_of_accounts (account_code, account_name, category, balance) 
+                      VALUES ('10301010', 'Accounts Receivable', 'Asset', '$total_amount')";
+    mysqli_query($connection, $insertARQuery);
+}
+
+
     // Update the balance for 'Accounts Receivable' in the chart_of_accounts table
-    $updateReceivablesQuery = "UPDATE chart_of_accounts SET balance = ? WHERE account_name = 'Accounts Receivable'";
+    $updateReceivablesQuery = "UPDATE chart_of_accounts SET balance = ? WHERE account_name = 'Accounts Payable'";
     $stmt = mysqli_prepare($connection, $updateReceivablesQuery);
     mysqli_stmt_bind_param($stmt, 'd', $totalReceivables);
     mysqli_stmt_execute($stmt);

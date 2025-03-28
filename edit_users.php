@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'];
     $email = $_POST['email'];
     $role = $_POST['role'];
-    $status = $_POST['status']; // Get the status value from the form
+
 
     // Fetch the current data of the user before updating
     $query = "SELECT * FROM users WHERE id = ?";
@@ -23,7 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'name' => $name,
         'email' => $email,
         'role' => $role,
-        'status' => $status
     ];
 
     // Check if there are any changes
@@ -38,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // If changes exist, update the user and log the action
     if ($hasChanges) {
         // Update query to modify user details
-        $stmt = $connection->prepare("UPDATE users SET name = ?, email = ?, role = ?, status = ? WHERE id = ?");
-        $stmt->bind_param("ssssi", $name, $email, $role, $status, $id);
+        $stmt = $connection->prepare("UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?");
+        $stmt->bind_param("sssi", $name, $email, $role, $id);
 
         if ($stmt->execute()) {
             // Audit log for the update

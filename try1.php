@@ -1,147 +1,92 @@
+<?php
+include('assets/databases/dbconfig.php');
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoices Paid Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f4f4;
-        }
-        .container {
-            max-width: 1200px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        h2 {
-            text-align: center;
-            color: #333;
-        }
-        .charts {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            margin-top: 20px;
-        }
-        .chart-container {
-            width: 45%;
-            min-width: 300px;
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .invoice-table {
-            width: 100%;
-            margin-top: 20px;
-            border-collapse: collapse;
-        }
-        .invoice-table th, .invoice-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        .invoice-table th {
-            background: #007bff;
-            color: white;
-        }
-    </style>
+    <title>Balance Sheet</title>
+    <link rel="stylesheet" href="assets/css/style.css"> <!-- Include your CSS -->
 </head>
 <body>
 
-<div class="container">
-    <h2>Invoices Paid Dashboard</h2>
+<h2>Balance Sheet</h2>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Account Name</th>
+            <th>Category</th>
+            <th>Balance</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php
+        // Fetch total income
+        $income_query = "SELECT SUM(amount) AS total_income FROM transactions";
+        $income_result = mysqli_query($connection, $income_query);
+        $income_row = mysqli_fetch_assoc($income_result);
+        $total_income = $income_row['total_income'] ?? 0;
 
-    <div class="charts">
-        <div class="chart-container">
-            <canvas id="barChart"></canvas>
-        </div>
-        <div class="chart-container">
-            <canvas id="pieChart"></canvas>
-        </div>
-    </div>
+        // Fetch total salaries (net pay)
+        $payroll_query = "SELECT SUM(net_pay) AS total_salaries FROM payroll";
+        $payroll_result = mysqli_query($connection, $payroll_query);
+        $payroll_row = mysqli_fetch_assoc($payroll_result);
+        $total_salaries = $payroll_row['total_salaries'] ?? 0;
 
-    <h3>Recent Transactions</h3>
-    <table class="invoice-table">
-        <thead>
-            <tr>
-                <th>Invoice #</th>
-                <th>Client</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Date Paid</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>INV-1001</td>
-                <td>ABC Corp</td>
-                <td>$2,500</td>
-                <td>Paid</td>
-                <td>2025-03-20</td>
-            </tr>
-            <tr>
-                <td>INV-1002</td>
-                <td>XYZ Ltd</td>
-                <td>$1,800</td>
-                <td>Paid</td>
-                <td>2025-03-18</td>
-            </tr>
-            <tr>
-                <td>INV-1003</td>
-                <td>LMN Inc</td>
-                <td>$3,200</td>
-                <td>Paid</td>
-                <td>2025-03-17</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+        // Fetch total employee expenses
+        $expenses_query = "SELECT SUM(amount) AS total_expenses FROM employee_expenses";
+        $expenses_result = mysqli_query($connection, $expenses_query);
+        $expenses_row = mysqli_fetch_assoc($expenses_result);
+        $total_expenses = $expenses_row['total_expenses'] ?? 0;
 
-<script>
-    // Bar Chart - Monthly Invoice Totals
-    const barCtx = document.getElementById('barChart').getContext('2d');
-    new Chart(barCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{
-                label: 'Total Invoices Paid ($)',
-                data: [5000, 7000, 4000, 9000, 6000, 8000],
-                backgroundColor: '#007bff'
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true }
-            }
-        }
-    });
+        // Fetch total COGS
+        $cogs_query = "SELECT SUM(total_cogs) AS total_cogs FROM cogs";
+        $cogs_result = mysqli_query($connection, $cogs_query);
+        $cogs_row = mysqli_fetch_assoc($cogs_result);
+        $total_cogs = $cogs_row['total_cogs'] ?? 0;
 
-    // Pie Chart - Payment Distribution
-    const pieCtx = document.getElementById('pieChart').getContext('2d');
-    new Chart(pieCtx, {
-        type: 'pie',
-        data: {
-            labels: ['Bank Transfer', 'Credit Card', 'PayPal'],
-            datasets: [{
-                data: [50, 30, 20],
-                backgroundColor: ['#007bff', '#28a745', '#ffc107']
-            }]
-        },
-        options: {
-            responsive: true
-        }
-    });
-</script>
+        // Compute updated Cash balance
+        $cash_balance = $total_income - $total_salaries - $total_expenses - $total_cogs;
+
+        // Fetch Accounts Receivable (total unpaid invoices)
+        $ar_query = "SELECT SUM(total_amount) AS total_ar FROM invoices WHERE payment_status = 'paid'";
+        $ar_result = mysqli_query($connection, $ar_query);
+        $ar_row = mysqli_fetch_assoc($ar_result);
+        $total_ar = $ar_row['total_ar'] ?? 0;
+
+        // Fetch total assets
+        $assets_query = "SELECT SUM(value) AS total_assets FROM assets";
+        $assets_result = mysqli_query($connection, $assets_query);
+        $assets_row = mysqli_fetch_assoc($assets_result);
+        $total_assets = $assets_row['total_assets'] ?? 0;
+
+        // Fetch total liabilities
+        $liabilities_query = "SELECT SUM(amount) AS total_liabilities FROM liabilities";
+        $liabilities_result = mysqli_query($connection, $liabilities_query);
+        $liabilities_row = mysqli_fetch_assoc($liabilities_result);
+        $total_liabilities = $liabilities_row['total_liabilities'] ?? 0;
+
+        // Compute Stockholders' Equity
+        $stockholders_equity = $total_assets - $total_liabilities;
+
+        // Display Assets
+        echo "<tr><td colspan='3'><strong>ASSETS</strong></td></tr>";
+        echo "<tr><td>Cash</td><td>Asset</td><td>" . number_format($cash_balance, 2) . "</td></tr>";
+        echo "<tr><td>Accounts Receivable</td><td>Asset</td><td>" . number_format($total_ar, 2) . "</td></tr>";
+        echo "<tr><td>Other Assets</td><td>Asset</td><td>" . number_format($total_assets, 2) . "</td></tr>";
+
+        // Display Liabilities
+        echo "<tr><td colspan='3'><strong>LIABILITIES</strong></td></tr>";
+        echo "<tr><td>Total Liabilities</td><td>Liability</td><td>" . number_format($total_liabilities, 2) . "</td></tr>";
+
+        // Display Stockholders' Equity
+        echo "<tr><td colspan='3'><strong>STOCKHOLDERS' EQUITY</strong></td></tr>";
+        echo "<tr><td>Equity</td><td>Equity</td><td>" . number_format($stockholders_equity, 2) . "</td></tr>";
+        ?>
+    </tbody>
+</table>
 
 </body>
 </html>

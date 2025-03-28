@@ -320,75 +320,108 @@ $user_role = $_SESSION['role'];
 
         <!-- Chart of Accounts Table -->
         <table id="coaTable">
-            <thead>
-                <tr>
-                    <th>Account Code</th>
-                    <th>Account Name</th>
-                    <th>Category</th>
-                    <th>Balance</th>
-                </tr>
-            </thead>
-            <tbody>
-    <?php
-    // Fetch total income from transactions table
-    $income_query = "SELECT SUM(amount) AS total_income FROM transactions";
-    $income_result = mysqli_query($connection, $income_query);
-    $income_row = mysqli_fetch_assoc($income_result);
-    $total_income = $income_row['total_income'] ?? 0;
+    <thead>
+        <tr>
+            <th>Account Code</th>
+            <th>Account Name</th>
+            <th>Category</th>
+            <th>Balance</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php
+        // Fetch total income from transactions table
+        $income_query = "SELECT SUM(amount) AS total_income FROM transactions";
+        $income_result = mysqli_query($connection, $income_query);
+        $income_row = mysqli_fetch_assoc($income_result);
+        $total_income = $income_row['total_income'] ?? 0;
 
-    // Fetch total salaries (net pay) from payroll table
-    $payroll_query = "SELECT SUM(net_pay) AS total_salaries FROM payroll";
-    $payroll_result = mysqli_query($connection, $payroll_query);
-    $payroll_row = mysqli_fetch_assoc($payroll_result);
-    $total_salaries = $payroll_row['total_salaries'] ?? 0;
+        // Fetch total salaries (net pay) from payroll table
+        $payroll_query = "SELECT SUM(net_pay) AS total_salaries FROM payroll";
+        $payroll_result = mysqli_query($connection, $payroll_query);
+        $payroll_row = mysqli_fetch_assoc($payroll_result);
+        $total_salaries = $payroll_row['total_salaries'] ?? 0;
 
-    // Fetch total employee expenses from employee_expenses table
-    $expenses_query = "SELECT SUM(amount) AS total_expenses FROM employee_expenses";
-    $expenses_result = mysqli_query($connection, $expenses_query);
-    $expenses_row = mysqli_fetch_assoc($expenses_result);
-    $total_expenses = $expenses_row['total_expenses'] ?? 0;
+        // Fetch total employee expenses from employee_expenses table
+        $expenses_query = "SELECT SUM(amount) AS total_expenses FROM employee_expenses";
+        $expenses_result = mysqli_query($connection, $expenses_query);
+        $expenses_row = mysqli_fetch_assoc($expenses_result);
+        $total_expenses = $expenses_row['total_expenses'] ?? 0;
 
-    $cogsQuery = "SELECT SUM(total_cogs) AS amount FROM cogs";
-$cogsResult = mysqli_query($connection, $cogsQuery);
-$cogsRow = mysqli_fetch_assoc($cogsResult);
-$cogs = $cogsRow['amount'] ?? 0;
+        // Fetch total COGS
+        $cogsQuery = "SELECT SUM(total_cogs) AS amount FROM cogs";
+        $cogsResult = mysqli_query($connection, $cogsQuery);
+        $cogsRow = mysqli_fetch_assoc($cogsResult);
+        $cogs = $cogsRow['amount'] ?? 0;
 
-    // Compute updated Cash balance
-    $updated_cash_balance = $total_income - $total_salaries - $total_expenses - $cogs;
+        // Compute updated Cash balance
+        $updated_cash_balance = $total_income - $total_salaries - $total_expenses - $cogs;
 
-    // Fetch chart_of_accounts data
-    $query = "SELECT id, account_code, account_name, category, balance FROM chart_of_accounts";
-    $result = mysqli_query($connection, $query);
+        // Fetch total amount of all paid invoices for Accounts Receivable
+        $ar_query = "SELECT SUM(total_amount) AS total_ar FROM invoices WHERE payment_status = 'Paid'";
+        $ar_result = mysqli_query($connection, $ar_query);
+        $ar_row = mysqli_fetch_assoc($ar_result);
+        $total_ar = $ar_row['total_ar'] ?? 0;
 
-    while ($row = mysqli_fetch_assoc($result)) {
-        $balance = $row['balance']; // Default balance from DB
+        // Fetch total assets
+        $assets_query = "SELECT SUM(value) AS total_assets FROM assets";
+        $assets_result = mysqli_query($connection, $assets_query);
+        $assets_row = mysqli_fetch_assoc($assets_result);
+        $total_assets = $assets_row['total_assets'] ?? 0;
 
-        // Override balance for "Salaries & Wages"
-        if ($row['account_name'] == 'Salaries & Wages') {
-            $balance = $total_salaries;
+        // Fetch total liabilities
+        $liabilities_query = "SELECT SUM(amount) AS total_liabilities FROM liabilities";
+        $liabilities_result = mysqli_query($connection, $liabilities_query);
+        $liabilities_row = mysqli_fetch_assoc($liabilities_result);
+        $total_liabilities = $liabilities_row['total_liabilities'] ?? 0;
+
+        // Compute Stockholders' Equity
+        $stockholders_equity = $total_assets - $total_liabilities;
+
+        // Fetch chart_of_accounts data
+        $query = "SELECT id, account_code, account_name, category, balance FROM chart_of_accounts";
+        $result = mysqli_query($connection, $query);
+
+        while ($row = mysqli_fetch_assoc($result)) {
+            $balance = $row['balance']; // Default balance from DB
+
+            // Override balance for "Salaries & Wages"
+            if ($row['account_name'] == 'Salaries & Wages') {
+                $balance = $total_salaries;
+            }
+
+            // Override balance for "Maintenance and Other Operating Expenses"
+            if ($row['account_name'] == 'Maintenance and Other Operating Expenses') {
+                $balance = $total_expenses;
+            }
+
+            // Override balance for "Cash"
+            if ($row['account_name'] == 'Cash') {
+                $balance = $updated_cash_balance;
+            }
+
+            // Override balance for "Accounts Receivable"
+            if ($row['account_name'] == 'Accounts Receivable') {
+                $balance = $total_ar;
+            }
+
+            // Override balance for "Stockholders' Equity"
+            if ($row['account_name'] == "Stockholders' Equity") {
+                $balance = $stockholders_equity;
+            }
+
+            echo "<tr>
+                <td>{$row['account_code']}</td>
+                <td>{$row['account_name']}</td>
+                <td>{$row['category']}</td>
+                <td>{$balance}</td>
+            </tr>";
         }
+        ?>
+    </tbody>
+</table>
 
-        // Override balance for "Maintenance and Other Operating Expenses"
-        if ($row['account_name'] == 'Maintenance and Other Operating Expenses') {
-            $balance = $total_expenses;
-        }
 
-        // Override balance for "Cash"
-        if ($row['account_name'] == 'Cash') {
-            $balance = $updated_cash_balance;
-        }
-
-        echo "<tr>
-            <td>{$row['account_code']}</td>
-            <td>{$row['account_name']}</td>
-            <td>{$row['category']}</td>
-            <td>{$balance}</td>
-        </tr>";
-    }
-    ?>
-</tbody>
-
-        </table>
     </main>
 </div>
 
